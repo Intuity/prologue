@@ -35,6 +35,6 @@ setup(
     entry_points={ },
     install_requires=[],
     setup_requires=["pytest-runner"],
-    tests_require=["pytest"],
+    tests_require=["pytest", "pytest-cov"],
     extras_require={},
 )
