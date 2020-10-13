@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from .common import PrologueError
+from .registry import Registry
 
 class Prologue(object):
     """ Top-level of the preprocessor """
@@ -29,6 +30,8 @@ class Prologue(object):
         # Store attributes
         self.delimiter        = delimiter
         self.shared_delimiter = shared_delimiter
+        # Create a registry instance
+        self.registry = Registry()
 
     # ==========================================================================
     # Property Setters/Getters
@@ -41,8 +44,8 @@ class Prologue(object):
     def delimiter(self, val):
         # Check delimiter
         if len(val.strip()) == 0:
-            raise PrologueError("Delimeter should be at least 1 character")
-        elif len(val.strip()) != len(val):
+            raise PrologueError("Delimiter should be at least one character")
+        elif len(val.replace(" ", "")) != len(val):
             raise PrologueError("Delimiter should not contain whitespace")
         # Set delimiter
         self.__delimiter = val
@@ -53,8 +56,30 @@ class Prologue(object):
     @shared_delimiter.setter
     def shared_delimiter(self, val):
         # Check value is True or False
-        if not isinstance(shared_delimiter, bool):
+        if not isinstance(val, bool):
             raise PrologueError("Shared delimiter should be True or False")
         # Set value
         self.__shared_delimiter = val
+
+    # ==========================================================================
+    # Registry Passthroughs
+    # ==========================================================================
+
+    def add_file(self, path):
+        """ Add a file to the registry.
+
+        Args:
+            path: Path to add
+        """
+        self.registry.add_file(path)
+
+    def add_folder(self, path, search_for=None, recursive=False):
+        """ Add a folder to the registry, see Registry.add_folder for more info.
+
+        Args:
+            path      : Path to the root folder to add
+            search_for: Provide a file extension to search for
+            recursive : Whether to search recursively in this folder
+        """
+        self.registry.add_folder(path, search_for=search_for, recursive=recursive)
 
