@@ -145,20 +145,21 @@ class Registry(object):
         # Wrap the folder
         r_folder = RegistryFolder(path)
         # If neither argument provided, register directly
-        if not search_for and not recursive:
+        if not self.__flat and not search_for and not recursive:
             self.insert_entry(r_folder)
         # If only recursive is provided, register all subfolders
-        elif not search_for and recursive:
-            self.insert_entry(r_folder)
+        elif not self.__flat and not search_for and recursive:
             for subfolder in r_folder.path.rglob("**/"):
                 self.insert_entry(RegistryFolder(subfolder))
         # If search_for is provided, lookup files
-        elif isinstance(search_for, str):
+        elif self.__flat or isinstance(search_for, str):
+            if not search_for: search_for = ""
             for subpath in (
                 r_folder.path.rglob(f"**/*{search_for}")
-                if recursive else
+                if (self.__flat or recursive) else
                 r_folder.path.glob(f"*{search_for}")
             ):
+                if subpath.is_dir(): continue
                 self.insert_entry(RegistryFile(subpath))
         # Unknown scenario
         else:
@@ -182,7 +183,7 @@ class Registry(object):
         # Sanity check
         if len(path.parts) > 1:
             if isinstance(entry, RegistryFile):
-                raise PrologueError(f"Only a file is registered for path {path}")
+                raise PrologueError(f"Only a file is registered for path {path.parts[0]}")
             return entry.resolve(Path(*path.parts[1:]))
         elif isinstance(entry, RegistryFolder):
             raise PrologueError(f"Failed to resolve {path} to a file")
