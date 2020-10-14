@@ -42,6 +42,13 @@ class RegistryFile(object):
     @property
     def filename(self): return self.path.parts[-1]
 
+    @property
+    def contents(self):
+        """ Provide an iterable that reads a line at a time from the file """
+        with open(self.path, "r") as fh:
+            for line in fh.readlines():
+                yield line.rstrip()
+
 class RegistryFolder(object):
     """ Holds a folder in the registry """
 
