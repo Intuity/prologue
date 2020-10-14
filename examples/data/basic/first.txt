@@ -1,0 +1,19 @@
+This is the first line
+...and now the second line...
+here comes a gap
+
+...then the fifth line.
+Here comes an anchored directive:
+#if A > 2
+  #if B < 3
+    Hello world
+  #else
+    Banana
+  #endif
+#endif
+Then we'll have a floating directive:
+This is a string #warning This is floating!
+What about a single line anchored directive?
+#info This is anchored!
+  #info This is anchored but tabbed in
+And back to the baseline
