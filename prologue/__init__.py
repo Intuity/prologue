@@ -15,6 +15,7 @@
 import re
 
 from .common import PrologueError
+from .context import Context
 from .directives import register_prime_directives
 from .directives.common import DirectiveType, Directive
 from .registry import Registry
@@ -34,6 +35,10 @@ class Prologue(object):
         # Store attributes
         self.delimiter        = delimiter
         self.shared_delimiter = shared_delimiter
+        # Create empty message handling callbacks
+        self.callback_debug   = None
+        self.callback_info    = None
+        self.callback_warning = None
         # Create a registry instance
         self.registry = Registry()
         # Create a store for directives
@@ -67,6 +72,53 @@ class Prologue(object):
             raise PrologueError("Shared delimiter should be True or False")
         # Set value
         self.__shared_delimiter = val
+
+    # ==========================================================================
+    # Message Handlers
+    # NOTE: Errors are raised as exceptions using PrologueError
+    # ==========================================================================
+
+    def debug_message(self, message, **kwargs):
+        """ Handle debug level messages.
+
+        Args:
+            message: The message to print
+            kwargs : Attributes related to the message
+        """
+        # If a callback is configured, delegate message to it
+        if self.callback_debug:
+            self.callback_debug(message, **kwargs)
+        # Otherwise print it out
+        else:
+            print(f"[PROLOGUE:DEBUG] {message}")
+
+    def info_message(self, message, **kwargs):
+        """ Handle info level messages.
+
+        Args:
+            message: The message to print
+            kwargs : Attributes related to the message
+        """
+        # If a callback is configured, delegate message to it
+        if self.callback_info:
+            self.callback_info(message, **kwargs)
+        # Otherwise print it out
+        else:
+            print(f"[PROLOGUE:INFO] {message}")
+
+    def warning_message(self, message, **kwargs):
+        """ Handle warning level messages.
+
+        Args:
+            message: The message to print
+            kwargs : Attributes related to the message
+        """
+        # If a callback is configured, delegate message to it
+        if self.callback_warning:
+            self.callback_warning(message, **kwargs)
+        # Otherwise print it out
+        else:
+            print(f"[PROLOGUE:WARN] {message}")
 
     # ==========================================================================
     # Registry Passthroughs
@@ -168,8 +220,8 @@ class Prologue(object):
         re_floating = re.compile(
             f"^(.*?){self.delimiter}[\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
         )
-        # Create stack to keep track of parse context
-        stack = []
+        # Create a context to keep track of stack and defines
+        context = Context(self)
         # Start parsing
         for idx, line in enumerate(r_file.contents):
             # Test if the line matches an anchored directive
