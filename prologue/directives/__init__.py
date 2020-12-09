@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .logical import if_directive
-from .message import info_directive, warn_directive, error_directive
+from .conditional import Conditional
+from .for_loop import ForLoop
+from .message import Message
 
 def register_prime_directives(pro):
     """ Register prime directives onto an instance of Prologue.
@@ -22,8 +23,7 @@ def register_prime_directives(pro):
         pro: Pointer to Prologue instance
     """
     # Register message directives
-    pro.register_directive(info_directive)
-    pro.register_directive(warn_directive)
-    pro.register_directive(error_directive)
+    pro.register_directive(Message)
     # Register logical directives
-    pro.register_directive(if_directive)
+    pro.register_directive(Conditional)
+    pro.register_directive(ForLoop)

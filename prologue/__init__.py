@@ -17,7 +17,8 @@ import re
 from .common import PrologueError
 from .context import Context
 from .directives import register_prime_directives
-from .directives.common import DirectiveType, Directive
+from .directives.base import Directive
+from .directives.common import DirectiveWrap
 from .registry import Registry
 
 class Prologue(object):
@@ -153,27 +154,13 @@ class Prologue(object):
             dirx: Decorated function that will act as the directive
         """
         # Check that the directive is correctly decorated
-        if not isinstance(dirx, Directive):
+        if not isinstance(dirx, DirectiveWrap):
             raise PrologueError("Directive type is not known, is it decorated?")
         # Check all tags
         for tag in dirx.tags:
             # Check if the tag collides with an existing directive
             if tag in self.directives:
                 raise PrologueError(f"Directive already registered for tag '{tag}'")
-            # Check if the tag collides with a directive closing tag
-            if (
-                tag.startswith("end") and (tag[3:] in self.directives) and
-                (self.directives[tag[3:]].type == DirectiveType.BLOCK)
-            ):
-                raise PrologueError(
-                    f"Directive tag '{tag}' clashes with terminator of block "
-                    f"directive '{tag[3:]}'"
-                )
-        # Check directive is callable
-        if not callable(dirx):
-            raise PrologueError(
-                f"Directive provided is not callable: {type(dirx).__name__}"
-            )
         # Register the directive
         for tag in dirx.tags: self.directives[tag] = dirx
 
@@ -220,30 +207,78 @@ class Prologue(object):
         re_floating = re.compile(
             f"^(.*?){self.delimiter}[\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
         )
-        # Create a context to keep track of stack and defines
+        # Create a context to keep track of variable state
         context = Context(self)
+        active  = None
         # Start parsing
         for idx, line in enumerate(r_file.contents):
             # Test if the line matches an anchored directive
             anchored = re_anchored.match(line)
             if anchored:
                 tag, arguments = anchored.groups()
-                yield from self.get_directive(tag)(tag, arguments.strip())
+                tag            = tag.lower()
+                d_wrap         = self.get_directive(tag)
+                if d_wrap.is_line:
+                    print(f"Line directive {tag}: {line}")
+                    l_dir = d_wrap.directive(active)
+                    l_dir.invoke(context, tag, arguments.strip())
+                    if active: active.append(l_dir)
+                    else     : yield from l_dir.evaluate()
+                elif d_wrap.is_block:
+                    # Call the directive
+                    if d_wrap.is_opening(tag):
+                        print(f"Block opening {tag}: {line}")
+                        block   = d_wrap.directive(active)
+                        context = context.fork()
+                        block.open(context, tag, arguments)
+                        # If a block is already open, append to it
+                        if active: active.append(block)
+                        # Track currently active block
+                        active = block
+                    elif d_wrap.is_transition(tag):
+                        print(f"Block transitioning {tag}: {line}")
+                        if d_wrap.directive != type(active):
+                            raise PrologueError(f"Transition tag '{tag}' was not expected")
+                        active.transition(context, tag, arguments)
+                    elif d_wrap.is_closing(tag):
+                        print(f"Block closing {tag}: {line}")
+                        if d_wrap.directive != type(active):
+                            raise PrologueError(f"Closing tag '{tag}' was not expected")
+                        active.close(context, tag, arguments)
+                        # If there is no parent, this is the root
+                        if not active.parent: yield from active.evaluate()
+                        # Pop the stack
+                        active = active.parent
+                    else:
+                        raise PrologueError("Unrecognised directive transition")
+                else:
+                    raise PrologueError(f"Unknown directive type for tag {tag}")
                 continue
             # Test if the line matches a floating directive
             floating = re_floating.match(line)
             if floating:
                 prior, tag, arguments = floating.groups()
-                directive             = self.get_directive(tag)
-                if directive.type == DirectiveType.BLOCK:
+                d_wrap                = self.get_directive(tag)
+                if d_wrap.is_block:
                     raise PrologueError(
-                        f"The directive '{tag}' can only be used with an "
+                        f"The directive '{tag}' can only be used with a "
                         f"delimiter as it is a block directive"
                     )
                 # Yield the text before the directive
                 yield prior.rstrip()
                 # Yield the contents returned from the directive
-                yield from directive(tag, arguments.strip())
+                l_dir = d_wrap.directive(active)
+                l_dir.invoke(context, tag, arguments.strip())
+                if active: active.append(l_dir)
+                else     : yield from l_dir.evaluate()
                 continue
             # Otherwise, this is just a line!
-            yield line
+            if active: active.append(line)
+            else     : yield line
+        # Check for trailing directives
+        if active:
+            dir_stack = [x for x in active.stack if isinstance(x, Directive)]
+            raise PrologueError(
+                f"Some directives remain unclosed at end of {top_level}: "
+                + ', '.join((type(x).OPENING[0] for x in dir_stack))
+            )

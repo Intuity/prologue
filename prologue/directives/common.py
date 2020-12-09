@@ -14,63 +14,137 @@
 
 from enum import IntEnum, auto
 
+from .base import BlockDirective, LineDirective
 from ..common import PrologueError
 
-class DirectiveType(IntEnum):
-    """ Enumeration for directive types """
-    LINE  = auto() # Single line directive (no 'end' required)
-    BLOCK = auto() # Block directive (requires 'end')
+class DirectiveWrap(object):
+    """ Decorator around a directive class or function """
 
-class Directive(object):
-    """ Decorator around a directive function """
-
-    def __init__(self, function, tags, type):
+    def __init__(self, dirx, opening, closing=None, transition=None):
         """ Initialise the wrapper
 
         Args:
-            function: Function to wrap
-            tags    : List of tags for registering the directive
-            type    : Type of the directive (e.g. BLOCK or LINE)
+            dirx      : The directive class or function
+            dir_type  : Type of the directive (e.g. BLOCK or LINE)
+            opening   : List of opening tags for the directive
+            closing   : List of closing tags for the directive (only used for block)
+            transition: Optional list of tags which transition between sections
         """
-        # Check function
-        if not callable(function):
-            raise PrologueError(f"Function is not callable: {function}")
+        # Store and check directive
+        self.directive = dirx
+        if not callable(dirx) and not issubclass(dirx, BlockDirective):
+            raise PrologueError(f"Function is not callable: {dirx}")
         # Check tags
-        if not isinstance(tags, tuple) or len(tags) == 0:
-            raise PrologueError("At least one directive tag must be specified")
-        for tag in tags:
+        opening    = tuple(opening) if isinstance(opening, list) else opening
+        closing    = tuple(closing) if isinstance(closing, list) else closing
+        transition = tuple(transition) if isinstance(transition, list) else transition
+        if not isinstance(opening, tuple) or len(opening) == 0:
+            raise PrologueError("At least one opening tag must be specified")
+        if self.is_block and (not isinstance(closing, tuple) or len(closing) == 0):
+            raise PrologueError("At least one closing tag must be specified")
+        elif not self.is_block and closing != None:
+            raise PrologueError("Only a block directive can have closing tags")
+        elif not self.is_block and transition != None:
+            raise PrologueError("Only a block directive can have transition tags")
+        for tag in (
+            opening +
+            (closing if closing else tuple()) +
+            (transition if transition else tuple())
+        ):
             if " " in tag or len(tag) == 0:
                 raise PrologueError(
                     "Directive tag cannot contain spaces and must be at least "
                     "one character in length"
                 )
-        # Check type
-        if type not in DirectiveType:
-            raise PrologueError(f"Unknown directive type {type}")
         # Store arguments
-        self.function = function
-        self.tags     = tags
-        self.type     = type
+        self.opening    = opening
+        self.closing    = closing if closing else tuple()
+        self.transition = transition if transition else tuple()
 
-    def __call__(self, *args, **kwargs):
-        yield from self.function(*args, **kwargs)
+    @property
+    def tags(self):
+        """ Return all tags - opening and closing """
+        return (self.opening + self.transition + self.closing)
 
-def block_directive(*tags):
+    @property
+    def is_block(self):
+        """ Returns if this is a block directive """
+        return (
+            isinstance(self.directive, type) and
+            issubclass(self.directive, BlockDirective)
+        )
+
+    @property
+    def is_line(self):
+        """ Returns if this is a line directive """
+        return not self.is_block
+
+    def is_opening(self, tag):
+        """ Test if a particular tag is an opening tag.
+
+        Args:
+            tag: The tag to test
+
+        Returns: True if this is an opening tag, False otherwise
+        """
+        if   tag in self.opening: return True
+        elif tag in (self.closing + self.transition): return False
+        else: raise PrologueError(f"Tag is not known by directive: {tag}")
+
+    def is_transition(self, tag):
+        """ Test if a particular tag is a transition tag.
+
+        Args:
+            tag: The tag to test
+
+        Returns: True if this is a transition tag, False otherwise
+        """
+        if   tag in self.transition: return True
+        elif tag in (self.opening + self.closing): return False
+        else: raise PrologueError(f"Tag is not known by directive: {tag}")
+
+    def is_closing(self, tag):
+        """ Test if a particular tag is a closing tag.
+
+        Args:
+            tag: The tag to test
+
+        Returns: True if this is a closing tag, False otherwise
+        """
+        if   tag in self.closing: return True
+        elif tag in (self.opening + self.transition): return False
+        else: raise PrologueError(f"Tag is not known by directive: {tag}")
+
+def directive(*tags, opening=None, closing=None, transition=None):
     """ Decorator for a block directive
 
     Args:
-        *tags: Accepts a list of tags to identify the directive
+        *tags     : List of tags identifying directive (alias of opening)
+        opening   : Tags that open a block directive
+        closing   : Tags that close a block directive
+        transition: Tags that transition between sections of the block
     """
-    def wrapper(_func):
-        return Directive(_func, tags, DirectiveType.BLOCK)
-    return wrapper
-
-def line_directive(*tags):
-    """ Decorator for a line directive
-
-    Args:
-        *tags: Accepts a list of tags to identify the directive
-    """
-    def wrapper(_func):
-        return Directive(_func, tags, DirectiveType.LINE)
+    # Pickup tags list if explicit opening list not provided
+    if not opening: opening = []
+    opening += tags
+    # Force tags to lowercase
+    opening = [x.lower() for x in opening]
+    if transition: transition = [x.lower() for x in transition]
+    if closing   : closing    = [x.lower() for x in closing   ]
+    # Setup the wrapper function
+    def wrapper(_dirx):
+        if not issubclass(_dirx, BlockDirective) and not issubclass(_dirx, LineDirective):
+            raise PrologueError(
+                "Directive must be a subclass of BlockDirective or LineDirective"
+            )
+        elif issubclass(_dirx, LineDirective) and (closing or transition):
+            raise PrologueError(
+                "Closing or transition tags can only be used with a block directive"
+            )
+        # Record tags against the registered class
+        _dirx.OPENING    = opening
+        _dirx.TRANSITION = transition
+        _dirx.CLOSING    = closing
+        # Return the wrapped directive
+        return DirectiveWrap(_dirx, opening, closing, transition)
     return wrapper

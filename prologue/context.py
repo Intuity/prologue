@@ -17,15 +17,17 @@ from .common import PrologueError
 class Context(object):
     """ Keeps track of the parser's context """
 
-    def __init__(self, pro):
+    def __init__(self, pro, parent=None):
         """ Initialise the context
 
         Args:
-            pro: Pointer to the root Prologue instance
+            pro   : Pointer to the root Prologue instance
+            parent: Pointer to the parent Context object prior to fork
         """
         self.pro     = pro
         self.defines = {}
         self.stack   = []
+        self.parent  = parent
 
     # ==========================================================================
     # Defined Value Management
@@ -78,22 +80,26 @@ class Context(object):
         return self.defines[key]
 
     # ==========================================================================
-    # Stack Management
+    # Forking and Joining
     # ==========================================================================
 
-    def stack_push(self, frame):
-        """ Push a frame onto the stack.
+    def fork(self):
+        """ Creates a copy of the context object allowing for delayed evaluation.
 
-        Args:
-            frame: The frame to push
+        Returns: Instance of Context with copied defines
         """
-        self.stack.append(frame)
+        # Create new the context instance
+        new = Context(self.pro, parent=self)
+        new.defines = { **self.defines }
+        return new
 
-    def stack_pop(self):
-        """ Pop a frame from the stack, raises an exception if stack is empty.
+    def join(self):
+        """ Joins a child context object back into it's parent.
 
-        Returns: Popped stack frame
+        Returns: Pointer to the parent context
         """
-        if len(self.stack) == 0:
-            raise PrologueError("Stack is empty, cannot pop frame")
-        return self.stack.pop()
+        if not self.parent:
+            raise PrologueError("No parent configured for context object")
+        for key, value in self.defines.items():
+            self.parent.set_define(key, value)
+        return self.parent

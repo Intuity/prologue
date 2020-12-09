@@ -14,22 +14,26 @@
 
 # NOTE: 'return' then 'yield' is used to avoid yielding 'None'
 
-from .common import line_directive
+from .base import LineDirective
+from .common import directive
+from ..common import PrologueError
 
-@line_directive("info")
-def info_directive(tag, arguments):
-    print(f"INFO: {arguments}")
-    return
-    yield
+INFO  = ["info"]
+WARN  = ["warn", "warning", "todo", "fixme"]
+ERROR = ["error", "danger", "fatal"]
 
-@line_directive("warn", "warning", "todo", "fixme")
-def warn_directive(tag, arguments):
-    print(f"WARNING: {arguments}")
-    return
-    yield
+@directive(*INFO, *WARN, *ERROR)
+class Message(LineDirective):
 
-@line_directive("error", "danger")
-def error_directive(tag, arguments):
-    print(f"ERROR: {arguments}")
-    return
-    yield
+    def invoke(self, context, tag, arguments):
+        global INFO, WARN, ERROR
+        if tag in INFO:
+            print(f"INFO{self.uuid}: {arguments}")
+        elif tag in WARN:
+            print(f"WARNING{self.uuid}: {arguments}")
+        elif tag in ERROR:
+            print(f"ERROR{self.uuid}: {arguments}")
+        else:
+            raise PrologueError(f"Unrecognised message type tag {tag}")
+        yield
+        return
