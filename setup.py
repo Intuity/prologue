@@ -33,7 +33,7 @@ setup(
     data_files=["LICENSE"],
     include_package_data=True,
     entry_points={ },
-    install_requires=[],
+    install_requires=["asteval"],
     setup_requires=["pytest-runner"],
     tests_require=["pytest", "pytest-cov", "pytest-mock"],
     extras_require={},
