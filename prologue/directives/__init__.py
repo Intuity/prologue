@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from .conditional import Conditional
+from .define import Define, Undefine
 from .for_loop import ForLoop
 from .message import Message
 
@@ -24,6 +25,9 @@ def register_prime_directives(pro):
     """
     # Register message directives
     pro.register_directive(Message)
+    # Variable define/undefine
+    pro.register_directive(Define)
+    pro.register_directive(Undefine)
     # Register logical directives
     pro.register_directive(Conditional)
     pro.register_directive(ForLoop)

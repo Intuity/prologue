@@ -12,26 +12,57 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import shlex
+
 from ..common import PrologueError
 from ..block import Block
 
 class Directive(Block):
     UUID = 0
 
-    def __init__(self, parent):
+    def __init__(self, parent, yields=True):
+        """ Initialise the directive.
+
+        Args:
+            parent: The parent block
+            yields: Whether the directive yields content
+        """
         super().__init__(parent)
-        self.__uuid = BlockDirective.issue_uuid()
+        self.__uuid   = BlockDirective.issue_uuid()
+        self.__yields = yields
 
     @property
-    def uuid(self):
-        """ Return the UUID (meant to be immutable) """
-        return self.__uuid
+    def yields(self): return self.__yields
+
+    @property
+    def uuid(self): return self.__uuid
 
     @classmethod
     def issue_uuid(self):
         issue = Directive.UUID
         Directive.UUID += 1
         return issue
+
+    def split_args(self, args):
+        """ Split an argument string into parts, paying attention to quotes.
+
+        Args:
+            args: The string to split
+
+        Returns: Array of sections
+        """
+        return shlex.split(args)
+
+    def get_arg(self, args, index, default=None):
+        """ Get the Nth argument from a string paying attention to quotes.
+
+        Args:
+            args   : The string to parse
+            index  : The section to extract
+            default: The default value to return if index out of range
+        """
+        parts = shlex.split(args)
+        return parts[index] if index < len(parts) else default
 
 class BlockDirective(Directive):
     """
@@ -40,8 +71,14 @@ class BlockDirective(Directive):
     closing tag, but can also be split into multiple sections using transitions.
     """
 
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent, yields=True):
+        """ Initialise the block directive.
+
+        Args:
+            parent: The parent block
+            yields: Whether the directive yields content (defaults to True for block)
+        """
+        super().__init__(parent, yields)
         self.__opened = False
         self.__closed = False
 
@@ -51,11 +88,10 @@ class BlockDirective(Directive):
     @property
     def closed(self): return self.__closed
 
-    def open(self, context, tag, arguments):
+    def open(self, tag, arguments):
         """ Called once for the opening directive of the block.
 
         Args:
-            context  : Context object carrying variable state
             tag      : The tag that opens the directive
             arguments: Argument string following the directive
         """
@@ -63,11 +99,10 @@ class BlockDirective(Directive):
             raise PrologueError("Multiple opening statements for block detected")
         self.__opened = True
 
-    def transition(self, context, tag, arguments):
+    def transition(self, tag, arguments):
         """ Called for every transition between different sections of the directive.
 
         Args:
-            context  : Context object carrying variable state
             tag      : The tag that opens the section
             arguments: Argument string following the directive
         """
@@ -76,11 +111,10 @@ class BlockDirective(Directive):
         elif self.__closed:
             raise PrologueError(f"Transition '{tag}' used after closing directive")
 
-    def close(self, context, tag, arguments):
+    def close(self, tag, arguments):
         """ Called once to close the directive.
 
         Args:
-            context  : Context object carrying variable state
             tag      : The tag that opens the directive
             arguments: Argument string following the directive
         """
@@ -108,5 +142,20 @@ class LineDirective(Directive):
     it is embedded within a block directive.
     """
 
-    def invoke(self, context, tag, arguments):
+    def __init__(self, parent, yields=False):
+        """ Initialise the block directive.
+
+        Args:
+            parent: The parent block
+            yields: Whether the directive yields content (defaults to False for line)
+        """
+        super().__init__(parent, yields)
+
+    def invoke(self, tag, arguments):
+        """ Called once to setup the directive.
+
+        Args:
+            tag      : The tag that opens the directive
+            arguments: Argument string following the directive
+        """
         raise PrologueError("Must provide implementation of 'invoke'")

@@ -34,14 +34,17 @@ class Block:
             )
         self.content.append(entry)
 
-    def evaluate(self):
+    def evaluate(self, context):
         """ Evaluate the block and stream complete lines back to Prologue.
+
+        Args:
+            context: Context object at the point of evaluation
 
         Yields: A line of text at a time
         """
         for entry in self.content:
             if isinstance(entry, Block):
-                yield from entry.evaluate()
+                yield from entry.evaluate(context)
             else:
                 yield entry
 

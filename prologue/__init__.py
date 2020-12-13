@@ -216,21 +216,23 @@ class Prologue(object):
             anchored = re_anchored.match(line)
             if anchored:
                 tag, arguments = anchored.groups()
+                arguments      = arguments.strip()
                 tag            = tag.lower()
                 d_wrap         = self.get_directive(tag)
+                if arguments.endswith(":"): arguments = arguments[:-1]
                 if d_wrap.is_line:
-                    print(f"Line directive {tag}: {line}")
+                    print(f"Anchored line directive {tag}: {line}")
                     l_dir = d_wrap.directive(active)
-                    l_dir.invoke(context, tag, arguments.strip())
-                    if active: active.append(l_dir)
-                    else     : yield from l_dir.evaluate()
+                    l_dir.invoke(tag, arguments.strip())
+                    if   active      : active.append(l_dir)
+                    elif l_dir.yields: yield from l_dir.evaluate(context)
+                    else             : l_dir.evaluate(context)
                 elif d_wrap.is_block:
                     # Call the directive
                     if d_wrap.is_opening(tag):
                         print(f"Block opening {tag}: {line}")
                         block   = d_wrap.directive(active)
-                        context = context.fork()
-                        block.open(context, tag, arguments)
+                        block.open(tag, arguments)
                         # If a block is already open, append to it
                         if active: active.append(block)
                         # Track currently active block
@@ -239,14 +241,18 @@ class Prologue(object):
                         print(f"Block transitioning {tag}: {line}")
                         if d_wrap.directive != type(active):
                             raise PrologueError(f"Transition tag '{tag}' was not expected")
-                        active.transition(context, tag, arguments)
+                        active.transition(tag, arguments)
                     elif d_wrap.is_closing(tag):
                         print(f"Block closing {tag}: {line}")
                         if d_wrap.directive != type(active):
                             raise PrologueError(f"Closing tag '{tag}' was not expected")
-                        active.close(context, tag, arguments)
+                        active.close(tag, arguments)
                         # If there is no parent, this is the root
-                        if not active.parent: yield from active.evaluate()
+                        if not active.parent:
+                            if active.yields:
+                                yield from active.evaluate(context.fork())
+                            else:
+                                active.evaluate(context.fork())
                         # Pop the stack
                         active = active.parent
                     else:
@@ -258,19 +264,22 @@ class Prologue(object):
             floating = re_floating.match(line)
             if floating:
                 prior, tag, arguments = floating.groups()
+                arguments             = arguments.strip()
                 d_wrap                = self.get_directive(tag)
                 if d_wrap.is_block:
                     raise PrologueError(
                         f"The directive '{tag}' can only be used with a "
                         f"delimiter as it is a block directive"
                     )
+                if arguments.endswith(":"): arguments = arguments[:-1]
                 # Yield the text before the directive
                 yield prior.rstrip()
                 # Yield the contents returned from the directive
                 l_dir = d_wrap.directive(active)
-                l_dir.invoke(context, tag, arguments.strip())
-                if active: active.append(l_dir)
-                else     : yield from l_dir.evaluate()
+                l_dir.invoke(tag, arguments.strip())
+                if   active      : active.append(l_dir)
+                elif l_dir.yields: yield from l_dir.evaluate(context)
+                else             : l_dir.evaluate(context)
                 continue
             # Otherwise, this is just a line!
             if active: active.append(line)

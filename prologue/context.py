@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
+import shlex
+
+import asteval
+
 from .common import PrologueError
 
 class Context(object):
@@ -24,21 +29,29 @@ class Context(object):
             pro   : Pointer to the root Prologue instance
             parent: Pointer to the parent Context object prior to fork
         """
-        self.pro     = pro
-        self.defines = {}
-        self.stack   = []
-        self.parent  = parent
+        self.pro       = pro
+        self.__defines = {}
+        self.parent    = parent
+        self.ast_eval  = asteval.Interpreter()
+
+    @property
+    def defines(self):
+        """ Returns all defines across the full stack of context objects """
+        return {
+            **(self.parent.defines if self.parent else {}), **self.__defines
+        }
 
     # ==========================================================================
-    # Defined Value Management
+    # Defined Constant Handling
     # ==========================================================================
 
-    def set_define(self, key, value):
+    def set_define(self, key, value, warning=True):
         """ Define a value for a key, checks whether the key clashes.
 
         Args:
-            key  : The key of the define
-            value: The value of the define
+            key    : The key of the define
+            value  : The value of the define
+            warning: Warn about redefining an existing variable
         """
         # Check the key is sane
         if " " in key or len(key) == 0:
@@ -47,13 +60,13 @@ class Context(object):
                 f"character in length: '{key}'"
             )
         # Warn about collision
-        if key in self.defines:
+        if warning and key in self.defines:
             self.pro.warning_message(
                 f"Value already defined for key {key}",
                 { "key": key, "value": value },
             )
         # Store the define
-        self.defines[key] = value
+        self.__defines[key] = value
 
     def clear_define(self, key):
         """
@@ -65,7 +78,22 @@ class Context(object):
         """
         if key not in self.defines:
             raise PrologueError(f"No value has been defined for key '{key}'")
-        del self.defines[key]
+        del self.__defines[key]
+
+    def has_define(self, key):
+        """ Check if a variable has been defined.
+
+        Args:
+            key: The key of the defined value
+
+        Returns: True if defined, False otherwise
+        """
+        # If defined at this level, immediately return True
+        if key in self.__defines: return True
+        # Check if defined by my parent instead?
+        if self.parent: return self.parent.has_define(key)
+        # Otherwise, it's not defined!
+        return False
 
     def get_define(self, key):
         """ Return a value if the key is known, otherwise raise an exception.
@@ -75,8 +103,11 @@ class Context(object):
 
         Returns: Value of the define
         """
-        if key not in self.defines:
-            raise PrologueError(f"No value has been defined for key '{key}'")
+        if key not in self.__defines:
+            if self.parent:
+                return self.parent.get_define(key)
+            else:
+                raise PrologueError(f"No value has been defined for key '{key}'")
         return self.defines[key]
 
     # ==========================================================================
@@ -84,14 +115,14 @@ class Context(object):
     # ==========================================================================
 
     def fork(self):
-        """ Creates a copy of the context object allowing for delayed evaluation.
-
-        Returns: Instance of Context with copied defines
         """
-        # Create new the context instance
-        new = Context(self.pro, parent=self)
-        new.defines = { **self.defines }
-        return new
+        Creates a new context object with tracking of parent instance. This
+        allows variable state to propagate from the parent, but be overridden
+        locally - which is vital in supporting nested block evaluation.
+
+        Returns: Instance of Context
+        """
+        return Context(self.pro, parent=self)
 
     def join(self):
         """ Joins a child context object back into it's parent.
@@ -100,6 +131,83 @@ class Context(object):
         """
         if not self.parent:
             raise PrologueError("No parent configured for context object")
-        for key, value in self.defines.items():
+        for key, value in self.__defines.items():
             self.parent.set_define(key, value)
         return self.parent
+
+    # ==========================================================================
+    # Expression Evaluation
+    # ==========================================================================
+
+    def flatten(self, expr):
+        """ Flatten an expression by substituting for known variables.
+
+        Args:
+            expr: The expression to flatten
+
+        Returns: String with each recognised variable substituted for its value
+        """
+        # Pickup candidates for substitution
+        rgx_const = re.compile(r"\b([a-z][a-z0-9_]*)\b", re.IGNORECASE)
+        matches   = [x for x in rgx_const.finditer(expr)]
+        # If no candidates detected, break out early
+        if len(matches) == 0: return str(expr)
+        # Substitute for each variable
+        final = ""
+        for idx, match in enumerate(matches):
+            var_name = match.groups(0)[0]
+            if not self.has_define(var_name):
+                raise PrologueError(f"Referenced unknown variable '{var_name}'")
+            # Pickup the section that comes before the match
+            final += (
+                expr[matches[idx-1].span()[1]:match.span()[0]] if idx > 0 else
+                expr[:match.span()[0]]
+            )
+            # Make the substitution
+            value  = self.get_define(var_name)
+            final += self.flatten(value) if isinstance(value, str) else str(value)
+        # Catch the trailing section
+        final += expr[matches[-1].span()[1]:]
+        # Return concatenated string
+        return "".join(final)
+
+    def evaluate(self, expr):
+        """ Flatten an expression, then evaluate it.
+
+        Args:
+            expr: The expression to evaluate
+
+        Returns: Result of the expression
+        """
+        # First flatten out variable references
+        flat = self.flatten(expr.strip())
+        # Now evaluate
+        return self.ast_eval(flat)
+
+    def substitute(self, line):
+        """ Perform in-line substitutions for recognised variables.
+
+        Args:
+            line: The line to perform substitution on
+
+        Returns: Line with values substituted
+        """
+        # First look for explicit substitutions of the form '$(x)'
+        rgx_exp = re.compile(r"([$][(].*?[)])")
+        matches = [x for x in rgx_exp.finditer(line)]
+        if matches:
+            # Substitute for each variable
+            final = ""
+            for idx, match in enumerate(matches):
+                # Pickup the section that comes before the match
+                final += (
+                    line[matches[idx-1].span()[1]:match.span()[0]] if idx > 0 else
+                    line[:match.span()[0]]
+                )
+                # Make the substitution (trimming off '$(' and ')')
+                final += str(self.evaluate(match.groups()[0][2:-1]))
+            # Catch the trailing section
+            line = (final + line[matches[-1].span()[1]:])
+        # TODO: Perform implicit substitution
+        # Return the finished string
+        return line

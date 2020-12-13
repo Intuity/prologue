@@ -24,16 +24,32 @@ ERROR = ["error", "danger", "fatal"]
 
 @directive(*INFO, *WARN, *ERROR)
 class Message(LineDirective):
+    """ Prints message at different verbosity levels """
 
-    def invoke(self, context, tag, arguments):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.msg_class = None
+        self.msg_text  = None
+
+    def invoke(self, tag, arguments):
+        """ Trigger a message to be printed.
+
+        Args:
+            context  : The current context object
+            tag      : Tag used to trigger this directive
+            arguments: Argument string provided to the directive
+        """
+        self.msg_text = arguments
         global INFO, WARN, ERROR
-        if tag in INFO:
-            print(f"INFO{self.uuid}: {arguments}")
-        elif tag in WARN:
-            print(f"WARNING{self.uuid}: {arguments}")
-        elif tag in ERROR:
-            print(f"ERROR{self.uuid}: {arguments}")
-        else:
-            raise PrologueError(f"Unrecognised message type tag {tag}")
-        yield
-        return
+        if   tag in INFO : self.msg_class = "INFO"
+        elif tag in WARN : self.msg_class = "WARNING"
+        elif tag in ERROR: self.msg_class = "ERROR"
+        else             : raise PrologueError(f"Unrecognised message type {tag}")
+
+    def evaluate(self, context):
+        """ Print the message.
+
+        Args:
+            context: The context object at the point of evaluation.
+        """
+        print(f"{self.msg_class}{self.uuid}: {self.msg_text}")

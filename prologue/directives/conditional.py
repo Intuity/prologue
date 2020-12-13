@@ -27,30 +27,28 @@ class Conditional(BlockDirective):
         self.elif_sections = []
         self.else_section  = None
 
-    def open(self, context, tag, arguments):
+    def open(self, tag, arguments):
         """ Open the conditional block with an 'if' clause.
 
         Args:
-            context  : Context object carrying variable state
             tag      : The tag that opens the directive
             arguments: Argument string following the directive
         """
-        super().open(context, tag, arguments)
+        super().open(tag, arguments)
         # Sanity checks
         if tag != "if":
             raise PrologueError(f"Conditional opening invoked with '{tag}'")
         # Record the section
         self.if_section = arguments, Block(self)
 
-    def transition(self, context, tag, arguments):
+    def transition(self, tag, arguments):
         """ Transition between different sections with ELIF/ELSE.
 
         Args:
-            context  : Context object carrying variable state
             tag      : The tag that opens the section
             arguments: Argument string following the directive
         """
-        super().transition(context, tag, arguments)
+        super().transition(tag, arguments)
         # Sanity checks
         if tag not in ["elif", "else"]:
             raise PrologueError(f"Conditional transition invoked with '{tag}'")
@@ -58,19 +56,18 @@ class Conditional(BlockDirective):
             raise PrologueError(f"Transition '{tag}' detected after 'else' clause")
         # Register the tag
         if tag == "elif":
-            self.elif_sections.append(arguments, Block(self))
+            self.elif_sections.append((arguments, Block(self)))
         else:
             self.else_section = arguments, Block(self)
 
-    def close(self, context, tag, arguments):
+    def close(self, tag, arguments):
         """ Close the directive block with ENDIF.
 
         Args:
-            context  : Context object carrying variable state
             tag      : The tag that opens the section
             arguments: Argument string following the directive
         """
-        super().transition(context, tag, arguments)
+        super().transition(tag, arguments)
         # Sanity checks
         if tag != "endif":
             raise PrologueError(f"Conditional close invoked with '{tag}'")
@@ -91,8 +88,11 @@ class Conditional(BlockDirective):
         elif len(self.elif_sections) > 0: self.elif_sections[-1][1].append(entry)
         else                            : self.if_section[1].append(entry)
 
-    def evaluate(self):
+    def evaluate(self, context):
         """ Selects the correct block to evaluate based upon conditions.
+
+        Args:
+            context: The context object at the point of evaluation
 
         Yields: A line of text at a time
         """
@@ -101,7 +101,6 @@ class Conditional(BlockDirective):
         if self.else_section: sections.append(self.else_section)
         # Check which section is active
         for cond, block in sections:
-            # TODO: Properly evaluate - for now always take first section (IF)
-            if True:
-                yield from block.evaluate()
+            if context.evaluate(cond):
+                yield from block.evaluate(context)
                 break

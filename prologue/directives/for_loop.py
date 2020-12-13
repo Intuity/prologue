@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import shlex
+
+import asteval
+
 from .base import BlockDirective
 from ..block import Block
 from .common import directive
@@ -25,28 +29,38 @@ class ForLoop(BlockDirective):
         super().__init__(parent)
         self.loop = None
 
-    def open(self, context, tag, arguments):
-        super().open(context, tag, arguments)
+    def open(self, tag, arguments):
+        super().open(tag, arguments)
         # Sanity checks
         if tag != "for":
             raise PrologueError(f"Loop opening invoked with '{tag}'")
         # Record the loop argument
         self.loop = arguments
 
-    def close(self, context, tag, arguments):
-        super().close(context, tag, arguments)
+    def close(self, tag, arguments):
+        super().close(tag, arguments)
         # Sanity checks
         if tag != "endfor":
             raise PrologueError(f"Loop close invoked with '{tag}'")
 
-    def evaluate(self):
+    def evaluate(self, context):
         """ Repeats the embedded block as many times as required.
+
+        Args:
+            context: The context object at the point of evaluation
 
         Yields: A line of text at a time
         """
-        # TODO: Evaluate the loop condition
-        states = [1, 2, 3, 4, 5]
-        # Repeatedly evaluate the embedded block
-        for state in states:
-            # TODO: Export the loop variable(s) into the context
-            yield from super().evaluate()
+        # Locate the 'in' keyword
+        parts = shlex.split(self.loop)
+        if "in" not in parts:
+            raise PrologueError(f"Incorrectly formed loop condition '{self.loop}'")
+        pre_loop  = " ".join(parts[:parts.index("in")])
+        post_loop = " ".join(parts[parts.index("in")+1:])
+        # TODO: Need to support complex unpacking of loop conditions
+        for entry in asteval.Interpreter()(post_loop):
+            # Expose the current value of the loop variableß
+            context.set_define(pre_loop, entry, warning=False)
+            # Perform substitutions for the loop variable (and any others)
+            for line in super().evaluate(context):
+                yield context.substitute(line)
