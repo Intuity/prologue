@@ -139,11 +139,12 @@ class Context(object):
     # Expression Evaluation
     # ==========================================================================
 
-    def flatten(self, expr):
+    def flatten(self, expr, skip_undef=False):
         """ Flatten an expression by substituting for known variables.
 
         Args:
-            expr: The expression to flatten
+            expr      : The expression to flatten
+            skip_undef: Skip undefined variables (instead of erroring)
 
         Returns: String with each recognised variable substituted for its value
         """
@@ -157,7 +158,14 @@ class Context(object):
         for idx, match in enumerate(matches):
             var_name = match.groups(0)[0]
             if not self.has_define(var_name):
-                raise PrologueError(f"Referenced unknown variable '{var_name}'")
+                if skip_undef:
+                    final += (
+                        expr[matches[idx-1].span()[1]:match.span()[1]] if idx > 0 else
+                        expr[:match.span()[1]]
+                    )
+                    continue
+                else:
+                    raise PrologueError(f"Referenced unknown variable '{var_name}'")
             # Pickup the section that comes before the match
             final += (
                 expr[matches[idx-1].span()[1]:match.span()[0]] if idx > 0 else

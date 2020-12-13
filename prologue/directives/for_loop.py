@@ -58,8 +58,8 @@ class ForLoop(BlockDirective):
         pre_loop  = " ".join(parts[:parts.index("in")])
         post_loop = " ".join(parts[parts.index("in")+1:])
         # TODO: Need to support complex unpacking of loop conditions
-        for entry in asteval.Interpreter()(post_loop):
-            # Expose the current value of the loop variableß
+        for entry in asteval.Interpreter()(context.flatten(post_loop, skip_undef=True)):
+            # Expose the current value of the loop variable
             context.set_define(pre_loop, entry, warning=False)
             # Perform substitutions for the loop variable (and any others)
             for line in super().evaluate(context):
