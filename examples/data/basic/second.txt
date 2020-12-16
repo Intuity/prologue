@@ -1,0 +1,5 @@
+#info This is from the second file
+Content from the second file
+hello there!
+
+#import "first.txt"

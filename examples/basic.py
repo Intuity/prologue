@@ -19,7 +19,7 @@ from prologue import Prologue
 pro = Prologue()
 
 pro.add_file(Path.cwd() / "examples" / "data" / "basic" / "first.txt")
+pro.add_file(Path.cwd() / "examples" / "data" / "basic" / "second.txt")
 
 for line in pro.evaluate("first.txt"):
     print(f"Got line: {line}")
-
