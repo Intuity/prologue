@@ -53,6 +53,16 @@ class Directive(Block):
         """
         return shlex.split(args)
 
+    def count_args(self, args):
+        """ Count the number of arguments found, paying attention to quotes.
+
+        Args:
+            args: The string to split
+
+        Returns: Number of arguments found
+        """
+        return len(self.split_args(args))
+
     def get_arg(self, args, index, default=None):
         """ Get the Nth argument from a string paying attention to quotes.
 
@@ -61,7 +71,7 @@ class Directive(Block):
             index  : The section to extract
             default: The default value to return if index out of range
         """
-        parts = shlex.split(args)
+        parts = self.split_args(args)
         return parts[index] if index < len(parts) else default
 
 class BlockDirective(Directive):

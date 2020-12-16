@@ -15,6 +15,7 @@
 from .conditional import Conditional
 from .define import Define, Undefine
 from .for_loop import ForLoop
+from .include import Include, Import
 from .message import Message
 
 def register_prime_directives(pro):
@@ -31,3 +32,6 @@ def register_prime_directives(pro):
     # Register logical directives
     pro.register_directive(Conditional)
     pro.register_directive(ForLoop)
+    # Include/import directives
+    pro.register_directive(Include)
+    pro.register_directive(Import)

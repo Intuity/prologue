@@ -18,6 +18,7 @@ import shlex
 import asteval
 
 from .common import PrologueError
+from .registry import RegistryFile
 
 class Context(object):
     """ Keeps track of the parser's context """
@@ -33,6 +34,8 @@ class Context(object):
         self.__defines = {}
         self.parent    = parent
         self.ast_eval  = asteval.Interpreter()
+        self.__stack   = []
+        self.__trace   = []
 
     @property
     def defines(self):
@@ -40,6 +43,60 @@ class Context(object):
         return {
             **(self.parent.defines if self.parent else {}), **self.__defines
         }
+
+    @property
+    def root(self):
+        """ Returns the root context object """
+        return self.parent.root if self.parent else self
+
+    @property
+    def stack(self):
+        """ Returns the root file stack object """
+        return self.root.stack if self.parent else self.__stack
+
+    @property
+    def trace(self):
+        """ Returns the root file trace object """
+        return self.root.trace if self.parent else self.__trace
+
+    # ==========================================================================
+    # File Stack Management
+    # ==========================================================================
+
+    def stack_push(self, file):
+        """ Push a new file onto the stack.
+
+        Args:
+            file: Instance of RegistryFile to push
+        """
+        # Sanity check this is the correct type
+        if not isinstance(file, RegistryFile):
+            raise PrologueError(
+                f"Trying to push {file} to stack - must be a RegistryFile"
+            )
+        # Push to stack
+        self.stack.append(file)
+        # Also push file to the trace - it records order files were read
+        self.trace.append(file)
+
+    def stack_pop(self):
+        """ Pop a file from the stack.
+
+        Returns: Next instance of RegistryFile from the top of the stack.
+        """
+        # Sanity check
+        if len(self.stack) == 0:
+            raise PrologueError("Trying to pop file from empty stack")
+        # Pop the top entry off the stack
+        return self.stack.pop()
+
+    def stack_top(self):
+        """ Get the top RegistryFile instance from the stack (if any exist).
+
+        Returns: RegistryFile instance if stack populated, else None.
+        """
+        # Return the top item off the stack
+        return self.stack[-1] if len(self.stack) > 0 else None
 
     # ==========================================================================
     # Defined Constant Handling

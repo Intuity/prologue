@@ -14,7 +14,7 @@
 
 from enum import IntEnum, auto
 
-from .base import BlockDirective, LineDirective
+from .base import Directive, BlockDirective, LineDirective
 from ..common import PrologueError
 
 class DirectiveWrap(object):
@@ -32,8 +32,9 @@ class DirectiveWrap(object):
         """
         # Store and check directive
         self.directive = dirx
-        if not callable(dirx) and not issubclass(dirx, BlockDirective):
-            raise PrologueError(f"Function is not callable: {dirx}")
+        print(f"{dirx} {type(dirx)}")
+        if not issubclass(dirx, Directive):
+            raise PrologueError(f"Item is not a subclass of Directive: {dirx}")
         # Check tags
         opening    = tuple(opening) if isinstance(opening, list) else opening
         closing    = tuple(closing) if isinstance(closing, list) else closing

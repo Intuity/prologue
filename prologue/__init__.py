@@ -190,16 +190,18 @@ class Prologue(object):
     # Evaluation
     # ==========================================================================
 
-    def evaluate(self, top_level):
+    def evaluate(self, filename, context=None):
         """ Iterable evaluation function which returns fully preprocessed stream
 
         Args:
-            top_level: The top level filename to start from
+            filename: The file to evaluate
+            context : For nested calls, provides a context object
+
+        Yields: Stream of preprocessed lines
         """
         # Find the top-level file
-        r_file = self.registry.resolve(top_level)
-        if not r_file:
-            raise PrologueError(f"Failed to find top-level file {top_level}")
+        r_file = self.registry.resolve(filename)
+        if not r_file: raise PrologueError(f"Failed to find file {filename}")
         # Create regular expressions for recognising directives
         re_anchored = re.compile(
             f"^[\s]*{self.delimiter}[\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
@@ -207,10 +209,18 @@ class Prologue(object):
         re_floating = re.compile(
             f"^(.*?){self.delimiter}[\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
         )
-        # Create a context to keep track of variable state
-        context = Context(self)
-        active  = None
+        # Create a context to keep track of variable state (if not provided)
+        if not context: context = Context(self)
+        # Stop infinite recursion by checking if this file is already in the stack
+        if r_file in context.stack:
+            raise PrologueError(
+                f"Detected infinite recursion when including file '{filename}' "
+                f"- file stack: {', '.join([x.filename for x in context.stack])}"
+            )
+        # Push the current file into the stack
+        context.stack_push(r_file)
         # Start parsing
+        active = None
         for idx, line in enumerate(r_file.contents):
             # Test if the line matches an anchored directive
             anchored = re_anchored.match(line)
@@ -221,9 +231,9 @@ class Prologue(object):
                 d_wrap         = self.get_directive(tag)
                 if arguments.endswith(":"): arguments = arguments[:-1]
                 if d_wrap.is_line:
-                    print(f"Anchored line directive {tag}: {line}")
                     l_dir = d_wrap.directive(active)
                     l_dir.invoke(tag, arguments.strip())
+                    print(f"Anchored line directive {tag}: {line} {l_dir.yields} {active}")
                     if   active      : active.append(l_dir)
                     elif l_dir.yields: yield from l_dir.evaluate(context)
                     else             : l_dir.evaluate(context)
@@ -291,3 +301,6 @@ class Prologue(object):
                 f"Some directives remain unclosed at end of {top_level}: "
                 + ', '.join((type(x).OPENING[0] for x in dir_stack))
             )
+        # Pop the file being parsed from the stack
+        if context.stack_pop() != r_file:
+            raise PrologueError("File stack has been corrupted")

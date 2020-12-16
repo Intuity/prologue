@@ -42,8 +42,12 @@ class Block:
 
         Yields: A line of text at a time
         """
+        from .directives.base import Directive
         for entry in self.content:
-            if isinstance(entry, Block):
+            if (
+                (    isinstance(entry, Directive) and entry.yields            ) or
+                (not isinstance(entry, Directive) and isinstance(entry, Block))
+            ):
                 yield from entry.evaluate(context)
             else:
                 yield entry
