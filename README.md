@@ -23,9 +23,10 @@ $> python3 setup.py test
  * Basic evaluation working, not yet taking account of conditions (coded)
  * Add proper evaluation of conditions (coded)
  * Value substitution - recognise defined values and substitute for them. (coded)
+ * Line spanning - recognise \ at the end of the line and concatenate consecutive lines together. (coded)
+ * Line concatenation into loop/condition - lines within blocks need to be held until the correct condition evaluates them. (coded)
 
 ## Still to Do
- * Add C-style delimiter support to provide separation e.g.: MY_``CONST``_VALUE
- * Line concatenation into loop/condition - lines within blocks need to be held until the correct condition evaluates them.
- * Line spanning - recognise \ at the end of the line and concatenate consecutive lines together.
- * Macro functions
+ * Source file and line number tracking.
+ * Add C-style delimiter support to provide separation e.g.: ```MY_##CONST##_VALUE```.
+ * Macro functions.
