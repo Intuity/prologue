@@ -190,18 +190,37 @@ class Prologue(object):
     # Evaluation
     # ==========================================================================
 
-    def evaluate(self, filename, context=None):
+    def evaluate(self, filename):
         """ Iterable evaluation function which returns fully preprocessed stream
 
         Args:
             filename: The file to evaluate
-            context : For nested calls, provides a context object
 
-        Yields: Stream of preprocessed lines
+        Yields: Stream of fully preprocessed lines
+        """
+        # Create a context object used for tracking variables and parse state
+        context = Context(self)
+        # Use inner evaluation routine to get each line one at a time
+        for line in self.evaluate_inner(filename, context):
+            yield context.substitute(line)
+
+    def evaluate_inner(self, filename, context):
+        """
+        Inner evaluation routine - this performs all construction and evaluation
+        except variable substitution, which is performed by 'evaluate'.
+
+        Args:
+            filename: The file to evaluate
+            context : A context object
+
+        Yields: Stream of preprocessed lines, prior to substitution
         """
         # Find the top-level file
         r_file = self.registry.resolve(filename)
         if not r_file: raise PrologueError(f"Failed to find file {filename}")
+        # Sanity check a context object was provided
+        if not isinstance(context, Context):
+            raise PrologueError(f"An invalid context was provided: {context}")
         # Create regular expressions for recognising directives
         re_anchored = re.compile(
             f"^[\s]*{self.delimiter}[\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
@@ -209,8 +228,6 @@ class Prologue(object):
         re_floating = re.compile(
             f"^(.*?){self.delimiter}[\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
         )
-        # Create a context to keep track of variable state (if not provided)
-        if not context: context = Context(self)
         # Stop infinite recursion by checking if this file is already in the stack
         if r_file in context.stack:
             raise PrologueError(

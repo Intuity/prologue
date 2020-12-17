@@ -45,7 +45,7 @@ class Include(LineDirective):
 
         Yields: Stream of lines from the included file
         """
-        yield from context.pro.evaluate(self.filename, context=context)
+        yield from context.pro.evaluate_inner(self.filename, context=context)
 
 @directive("import")
 class Import(Include.directive):
@@ -61,4 +61,4 @@ class Import(Include.directive):
         """
         r_file = context.pro.registry.resolve(self.filename)
         if r_file not in context.trace:
-            yield from context.pro.evaluate(self.filename, context=context)
+            yield from context.pro.evaluate_inner(self.filename, context=context)

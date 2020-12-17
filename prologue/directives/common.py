@@ -32,7 +32,6 @@ class DirectiveWrap(object):
         """
         # Store and check directive
         self.directive = dirx
-        print(f"{dirx} {type(dirx)}")
         if not issubclass(dirx, Directive):
             raise PrologueError(f"Item is not a subclass of Directive: {dirx}")
         # Check tags

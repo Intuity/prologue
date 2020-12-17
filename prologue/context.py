@@ -196,6 +196,10 @@ class Context(object):
     # Expression Evaluation
     # ==========================================================================
 
+    # Define regular expression for variable substitution
+    RGX_EXP = re.compile(r"([$][(].*?[)])")
+    RGX_IMP = re.compile(r"\b([a-z][a-z0-9_]{0,})\b", flags=re.IGNORECASE)
+
     def flatten(self, expr, skip_undef=False):
         """ Flatten an expression by substituting for known variables.
 
@@ -249,30 +253,38 @@ class Context(object):
         # Now evaluate
         return self.ast_eval(flat)
 
-    def substitute(self, line):
+    def substitute(self, line, implicit=True):
         """ Perform in-line substitutions for recognised variables.
 
         Args:
-            line: The line to perform substitution on
+            line    : The line to perform substitution on
+            implicit: Enable implicit substitutions
 
         Returns: Line with values substituted
         """
         # First look for explicit substitutions of the form '$(x)'
-        rgx_exp = re.compile(r"([$][(].*?[)])")
-        matches = [x for x in rgx_exp.finditer(line)]
-        if matches:
-            # Substitute for each variable
-            final = ""
-            for idx, match in enumerate(matches):
-                # Pickup the section that comes before the match
-                final += (
-                    line[matches[idx-1].span()[1]:match.span()[0]] if idx > 0 else
-                    line[:match.span()[0]]
-                )
-                # Make the substitution (trimming off '$(' and ')')
-                final += str(self.evaluate(match.groups()[0][2:-1]))
-            # Catch the trailing section
-            line = (final + line[matches[-1].span()[1]:])
-        # TODO: Perform implicit substitution
+        exp_match = [x for x in Context.RGX_EXP.finditer(line)]
+        final     = ""
+        for idx, match in enumerate(exp_match):
+            # Pickup the section that comes before the match
+            final += (
+                line[exp_match[idx-1].span()[1]:match.span()[0]] if idx > 0 else
+                line[:match.span()[0]]
+            )
+            # Make the substitution (trimming off '$(' and ')')
+            final += str(self.evaluate(match.groups()[0][2:-1]))
+        # Catch the trailing section
+        line = (final + line[exp_match[-1].span()[1]:]) if exp_match else line
+        # Secondly look for implicit substitutions
+        if implicit:
+            imp_match = [x for x in Context.RGX_IMP.finditer(line)]
+            # Substitute each identified variable
+            for match in imp_match:
+                if self.has_define(match.groups()[0]):
+                    line = (
+                        line[:match.span()[0]] +
+                        str(self.get_define(match.groups()[0])) +
+                        line[match.span()[1]:]
+                    )
         # Return the finished string
         return line
