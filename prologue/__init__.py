@@ -77,7 +77,6 @@ class Prologue(object):
 
     # ==========================================================================
     # Message Handlers
-    # NOTE: Errors are raised as exceptions using PrologueError
     # ==========================================================================
 
     def debug_message(self, message, **kwargs):
@@ -334,7 +333,7 @@ class Prologue(object):
         if active:
             dir_stack = [x for x in active.stack if isinstance(x, Directive)]
             raise PrologueError(
-                f"Some directives remain unclosed at end of {top_level}: "
+                f"Some directives remain unclosed at end of {active}: "
                 + ', '.join((type(x).OPENING[0] for x in dir_stack))
             )
         # Pop the file being parsed from the stack

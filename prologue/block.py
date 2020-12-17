@@ -30,7 +30,7 @@ class Block:
         """
         if not isinstance(entry, str) and not isinstance(entry, Block):
             raise PrologueError(
-                f"Entry must be a string or Block, not {type(line).__name__}"
+                f"Entry must be a string or Block, not {type(entry).__name__}"
             )
         self.content.append(entry)
 
