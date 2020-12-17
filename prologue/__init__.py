@@ -40,6 +40,7 @@ class Prologue(object):
         self.callback_debug   = None
         self.callback_info    = None
         self.callback_warning = None
+        self.callback_error   = None
         # Create a registry instance
         self.registry = Registry()
         # Create a store for directives
@@ -120,6 +121,20 @@ class Prologue(object):
         # Otherwise print it out
         else:
             print(f"[PROLOGUE:WARN] {message}")
+
+    def error_message(self, message, **kwargs):
+        """ Handle error level messages.
+
+        Args:
+            message: The message to print
+            kwargs : Attributes related to the message
+        """
+        # If a callback is configured, delegate message to it
+        if self.callback_error:
+            self.callback_error(message, **kwargs)
+        # Otherwise print it out
+        else:
+            raise PrologueError(message)
 
     # ==========================================================================
     # Registry Passthroughs

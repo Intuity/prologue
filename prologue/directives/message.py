@@ -52,4 +52,8 @@ class Message(LineDirective):
         Args:
             context: The context object at the point of evaluation.
         """
-        print(f"{self.msg_class}{self.uuid}: {self.msg_text}")
+        {
+            "INFO"   : context.pro.info_message,
+            "WARNING": context.pro.warning_message,
+            "ERROR"  : context.pro.error_message,
+        }[self.msg_class](self.msg_text)
