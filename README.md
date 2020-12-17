@@ -21,10 +21,11 @@ $> python3 setup.py test
  * Support context forking/joining (coded)
  * Context's formal stack deprecated in favour of parent pointers (coded)
  * Basic evaluation working, not yet taking account of conditions (coded)
+ * Add proper evaluation of conditions (coded)
+ * Value substitution - recognise defined values and substitute for them. (coded)
 
 ## Still to Do
- * Add proper evaluation of conditions
+ * Add C-style delimiter support to provide separation e.g.: MY_``CONST``_VALUE
  * Line concatenation into loop/condition - lines within blocks need to be held until the correct condition evaluates them.
- * Value substitution - recognise defined values and substitute for them. Use delimiter to provide separation e.g.: MY_``CONST``_VALUE
  * Line spanning - recognise \ at the end of the line and concatenate consecutive lines together.
  * Macro functions
