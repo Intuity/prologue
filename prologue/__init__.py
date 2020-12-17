@@ -237,8 +237,16 @@ class Prologue(object):
         # Push the current file into the stack
         context.stack_push(r_file)
         # Start parsing
-        active = None
+        active      = None
+        accumulated = None
         for idx, line in enumerate(r_file.contents):
+            # Handle line continuation
+            if line and line[-1] == "\\":
+                accumulated = (accumulated + line[:-1]) if accumulated else line[:-1]
+                continue
+            elif accumulated:
+                line        = accumulated + line
+                accumulated = None
             # Test if the line matches an anchored directive
             anchored = re_anchored.match(line)
             if anchored:
