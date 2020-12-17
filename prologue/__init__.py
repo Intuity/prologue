@@ -258,14 +258,12 @@ class Prologue(object):
                 if d_wrap.is_line:
                     l_dir = d_wrap.directive(active)
                     l_dir.invoke(tag, arguments.strip())
-                    print(f"Anchored line directive {tag}: {line} {l_dir.yields} {active}")
                     if   active      : active.append(l_dir)
                     elif l_dir.yields: yield from l_dir.evaluate(context)
                     else             : l_dir.evaluate(context)
                 elif d_wrap.is_block:
                     # Call the directive
                     if d_wrap.is_opening(tag):
-                        print(f"Block opening {tag}: {line}")
                         block   = d_wrap.directive(active)
                         block.open(tag, arguments)
                         # If a block is already open, append to it
@@ -273,12 +271,10 @@ class Prologue(object):
                         # Track currently active block
                         active = block
                     elif d_wrap.is_transition(tag):
-                        print(f"Block transitioning {tag}: {line}")
                         if d_wrap.directive != type(active):
                             raise PrologueError(f"Transition tag '{tag}' was not expected")
                         active.transition(tag, arguments)
                     elif d_wrap.is_closing(tag):
-                        print(f"Block closing {tag}: {line}")
                         if d_wrap.directive != type(active):
                             raise PrologueError(f"Closing tag '{tag}' was not expected")
                         active.close(tag, arguments)
