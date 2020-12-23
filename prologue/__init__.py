@@ -14,7 +14,7 @@
 
 import re
 
-from .common import PrologueError
+from .common import PrologueError, Line
 from .context import Context
 from .directives import register_prime_directives
 from .directives.base import Directive
@@ -46,6 +46,8 @@ class Prologue(object):
         # Create a store for directives
         self.directives = {}
         register_prime_directives(self)
+        # Setup blank loop for converting from output line to input file and line
+        self.lookup = None
 
     # ==========================================================================
     # Property Setters/Getters
@@ -215,8 +217,11 @@ class Prologue(object):
         # Create a context object used for tracking variables and parse state
         context = Context(self)
         # Use inner evaluation routine to get each line one at a time
+        self.lookup = []
         for line in self.evaluate_inner(filename, context):
-            yield context.substitute(line)
+            final = context.substitute(line)
+            self.lookup.append((final.file, final.number))
+            yield str(final)
 
     def evaluate_inner(self, filename, context):
         """
@@ -318,7 +323,7 @@ class Prologue(object):
                     )
                 if arguments.endswith(":"): arguments = arguments[:-1]
                 # Yield the text before the directive
-                yield prior.rstrip()
+                yield line.encase(prior.rstrip())
                 # Yield the contents returned from the directive
                 l_dir = d_wrap.directive(active)
                 l_dir.invoke(tag, arguments.strip())
@@ -339,3 +344,47 @@ class Prologue(object):
         # Pop the file being parsed from the stack
         if context.stack_pop() != r_file:
             raise PrologueError("File stack has been corrupted")
+
+    # ==========================================================================
+    # Lookup
+    # ==========================================================================
+
+    def resolve(self, line, before=2, after=2):
+        """
+        Use the line lookup to resolve which input file and line number produced
+        each line of the output.
+
+        Args:
+            line  : Line number (from 1 to number of output lines, not an index)
+            before: How many lines to include in the snippet before the target
+            after : How many lines to include in the snippet after the target
+
+        Returns: Tuple of input RegistryFile and the line number
+        """
+        # Sanity checks
+        if not self.lookup:
+            raise PrologueError(
+                "Lookup does not yet exist - have you called 'evaluate'?"
+            )
+        elif not isinstance(line, int):
+            raise PrologueError(f"Line number must be an integer - not '{line}'")
+        elif line < 1 or line > len(self.lookup):
+            raise PrologueError(
+                f"Line {line} is out of valid range 1-{len(self.lookup)}"
+            )
+        # Use lookup to get the file and line number
+        r_file, line_no = self.lookup[line-1]
+        # Grab a snippet from the input file
+        snippet = []
+        for s_line in r_file.contents:
+            # If this is before the snip point, ignore it
+            if s_line.number < (line_no - before): continue
+            # If this is after the snip point, break out
+            if s_line.number > (line_no + after): break
+            # Otherwise, build up the snippet
+            snippet.append("%4i %s %s" % (
+                s_line.number, (">>" if (s_line.number == line_no) else "  "),
+                str(s_line)
+            ))
+        # Return the input file and line number
+        return r_file, line_no, snippet

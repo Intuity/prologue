@@ -15,7 +15,7 @@
 from enum import IntEnum
 from pathlib import Path
 
-from .common import PrologueError
+from .common import PrologueError, Line
 
 class RegistryFile(object):
     """ Holds a file in the registry """
@@ -46,8 +46,8 @@ class RegistryFile(object):
     def contents(self):
         """ Provide an iterable that reads a line at a time from the file """
         with open(self.path, "r") as fh:
-            for line in fh.readlines():
-                yield line.rstrip()
+            for idx, line in enumerate(fh.readlines()):
+                yield Line(line.rstrip(), self, idx + 1)
 
 class RegistryFolder(object):
     """ Holds a folder in the registry """

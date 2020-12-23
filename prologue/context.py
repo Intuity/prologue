@@ -17,7 +17,7 @@ import shlex
 
 import asteval
 
-from .common import PrologueError
+from .common import PrologueError, Line
 from .registry import RegistryFile
 
 class Context(object):
@@ -262,6 +262,7 @@ class Context(object):
 
         Returns: Line with values substituted
         """
+        f_file, f_line = line.file, line.number
         # First look for explicit substitutions of the form '$(x)'
         exp_match = [x for x in Context.RGX_EXP.finditer(line)]
         final     = ""
@@ -287,4 +288,4 @@ class Context(object):
                         line[match.span()[1]:]
                     )
         # Return the finished string
-        return line
+        return Line(line, f_file, f_line)
