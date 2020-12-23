@@ -14,7 +14,7 @@
 
 import pytest
 
-from prologue.common import PrologueError
+from prologue.common import PrologueError, Line
 from prologue.registry import RegistryFile
 
 def test_reg_file_bad_path(tmp_path):
@@ -45,3 +45,20 @@ def test_reg_file_string(tmp_path):
     with open(real_path, "w") as fh: fh.write("dummy content")
     r_file = RegistryFile(str(real_path.as_posix()))
     assert r_file.filename == "my_file.txt"
+
+def test_reg_file_contents(tmp_path):
+    """ Check that RegistryFile correctly reads back contents of a file """
+    real_path = tmp_path / "my_file.txt"
+    lines     = [
+        "dummy line A",
+        "dummy line B    ",
+        "dummy line C ",
+    ]
+    with open(real_path, "w") as fh: fh.write("\n".join(lines))
+    r_file = RegistryFile(str(real_path.as_posix()))
+    assert r_file.filename == "my_file.txt"
+    for idx, line in enumerate(r_file.contents):
+        assert isinstance(line, Line)
+        assert line.number == (idx + 1)
+        assert line.file   == r_file
+        assert str(line)   == lines[idx].rstrip()

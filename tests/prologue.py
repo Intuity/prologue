@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from prologue import Prologue
@@ -60,7 +62,7 @@ def test_prologue_bad_shared():
     # Check a bad value doesn't work
     with pytest.raises(PrologueError) as excinfo:
         Prologue(shared_delimiter="banana")
-    assert "Shared delimiter should be True or False"
+    assert "Shared delimiter should be True or False" in str(excinfo.value)
     # Check both sane values work
     for val in (True, False):
         assert Prologue(shared_delimiter=val).shared_delimiter == val
@@ -71,7 +73,7 @@ def test_prologue_bad_new_shared():
     # Check a bad value doesn't work
     with pytest.raises(PrologueError) as excinfo:
         pro.shared_delimiter = "banana"
-    assert "Shared delimiter should be True or False"
+    assert "Shared delimiter should be True or False" in str(excinfo.value)
     # Check both sane values work
     for val in (True, False):
         pro.shared_delimiter = val
@@ -92,3 +94,29 @@ def test_prologue_add_folder(mocker):
     pro.registry.add_folder.assert_called_once_with(
         "test_folder_1234", search_for=".txt", recursive=True
     )
+
+def test_prologue_messages(mocker):
+    """ Test that debug messages are logged using 'print' or callback """
+    pro        = Prologue()
+    mock_print = mocker.patch("builtins.print")
+    for func, cb, mtype in [
+        (pro.debug_message,   "callback_debug",   "DEBUG"),
+        (pro.info_message,    "callback_info",    "INFO" ),
+        (pro.warning_message, "callback_warning", "WARN" ),
+        (pro.error_message,   "callback_error",   "ERROR"),
+    ]:
+        # First test logging via 'print' (default behaviour)
+        if mtype == "ERROR":
+            with pytest.raises(PrologueError) as excinfo:
+                func("Hello 1234!")
+            assert "Hello 1234!" in str(excinfo.value)
+        else:
+            func("Hello 1234!")
+            mock_print.assert_called_once_with(f"[PROLOGUE:{mtype}] Hello 1234!")
+        # Now test logging via callback
+        setattr(pro, cb, MagicMock())
+        func("Goodbye 9876?")
+        getattr(pro, cb).assert_called_once_with("Goodbye 9876?")
+        # Reset mocks
+        mock_print.reset_mock()
+        getattr(pro, cb).reset_mock()
