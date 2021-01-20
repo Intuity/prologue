@@ -34,10 +34,11 @@ class Conditional(BlockDirective):
             tag      : The tag that opens the directive
             arguments: Argument string following the directive
         """
-        super().open(tag, arguments)
         # Sanity checks
         if tag != "if":
             raise PrologueError(f"Conditional opening invoked with '{tag}'")
+        # Now open the tag
+        super().open(tag, arguments)
         # Record the section
         self.if_section = arguments, Block(self)
 
@@ -48,12 +49,13 @@ class Conditional(BlockDirective):
             tag      : The tag that opens the section
             arguments: Argument string following the directive
         """
-        super().transition(tag, arguments)
         # Sanity checks
         if tag not in ["elif", "else"]:
             raise PrologueError(f"Conditional transition invoked with '{tag}'")
         elif self.else_section:
             raise PrologueError(f"Transition '{tag}' detected after 'else' clause")
+        # Now perform transition
+        super().transition(tag, arguments)
         # Register the tag
         if tag == "elif":
             self.elif_sections.append((arguments, Block(self)))
@@ -67,10 +69,11 @@ class Conditional(BlockDirective):
             tag      : The tag that opens the section
             arguments: Argument string following the directive
         """
-        super().transition(tag, arguments)
         # Sanity checks
         if tag != "endif":
             raise PrologueError(f"Conditional close invoked with '{tag}'")
+        # Now close tag
+        super().close(tag, arguments)
 
     def append(self, entry):
         """ Append a new line or nested block to the active section.
