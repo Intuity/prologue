@@ -38,6 +38,9 @@ class ForLoop(BlockDirective):
         # Record the loop argument
         self.loop = arguments
 
+    def transition(self, tag, arguments):
+        raise PrologueError("For loop does not support transitions")
+
     def close(self, tag, arguments):
         # Sanity checks
         if tag != "endfor":
