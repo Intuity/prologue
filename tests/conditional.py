@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from random import choice, randint
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -132,6 +133,54 @@ def test_conditional_bad_close():
         assert f"Conditional close invoked with '{closing}'" in str(excinfo.value)
         assert not cond.closed
 
+def gen_body(cond):
+    """ Populates a random body into each section.
+
+    Args:
+        cond: Conditional instance
+
+    Returns: The lines populated into the active section
+    """
+    lines = []
+    for _x in range(randint(20, 30)):
+        lines.append(random_str(20, 30))
+        cond.append(lines[-1])
+    return lines
+
+def test_conditional_append():
+    """ Append text to different sections of the conditional block """
+    cond = Conditional.directive(None)
+    # First populate the 'IF' opening section
+    if_arg = random_str(5, 10)
+    cond.open("if", if_arg)
+    if_lines = gen_body(cond)
+    # Now populate a number of 'ELIF' sections
+    elif_args  = []
+    elif_lines = []
+    for _x in range(randint(1, 3)):
+        elif_args.append(random_str(5, 10))
+        cond.transition("elif", elif_args[-1])
+        elif_lines.append(gen_body(cond))
+    # Finally populate the 'ELSE' section
+    else_arg = random_str(5, 10)
+    cond.transition("else", else_arg)
+    else_lines = gen_body(cond)
+    # Close the conditional
+    cond.close("endif", "")
+    # Check the lines are stored correctly for 'IF'
+    assert cond.if_section[0]         == if_arg
+    assert cond.if_section[1].content == if_lines
+    # Now check 'ELIF' sections
+    assert len(elif_args) == len(elif_lines)
+    assert len(elif_args) == len(cond.elif_sections)
+    for arg, lines, sect in zip(elif_args, elif_lines, cond.elif_sections):
+        assert sect[0]         == arg
+        assert sect[1].content == lines
+    # Finally check 'ELSE' section
+    assert cond.else_section[0]         == else_arg
+    assert cond.else_section[1].content == else_lines
+
+
 def test_conditional_append_unopened():
     """ Try appending lines to an unopened conditional """
     cond = Conditional.directive(None)
@@ -148,3 +197,43 @@ def test_conditional_append_closed():
         cond.append("Hello 1234")
     assert "Trying to append a line to a closed conditional" in str(excinfo.value)
 
+def test_conditional_evaluate(mocker):
+    """ Check that evaluating a conditional returns the right contents """
+    cond = Conditional.directive(None)
+    # First populate the 'IF' opening section
+    if_arg = random_str(5, 10)
+    cond.open("if", if_arg)
+    if_lines = gen_body(cond)
+    # Now populate a number of 'ELIF' sections
+    elif_args  = []
+    elif_lines = []
+    for _x in range(randint(1, 3)):
+        elif_args.append(random_str(5, 10))
+        cond.transition("elif", elif_args[-1])
+        elif_lines.append(gen_body(cond))
+    # Finally populate the 'ELSE' section
+    else_arg = random_str(5, 10)
+    cond.transition("else", else_arg)
+    else_lines = gen_body(cond)
+    # Close the conditional
+    cond.close("endif", "")
+    # Evaluate the 'IF' section
+    ctx = MagicMock()
+    ctx.evaluate.side_effect = [True] + ([False] * (len(elif_args) + 1))
+    assert [x for x in cond.evaluate(ctx)] == if_lines
+    ctx.evaluate.assert_has_calls([call(if_arg)])
+    # Evaluate each 'ELIF' section in turn
+    call_list = [call(if_arg)]
+    for idx, (arg, lines) in enumerate(zip(elif_args, elif_lines)):
+        ctx = MagicMock()
+        ctx.evaluate.side_effect = (
+            ([False] * (idx + 1)) + [True] + ([False] * (len(elif_lines) - idx))
+        )
+        assert [x for x in cond.evaluate(ctx)] == lines
+        call_list.append(call(arg))
+        ctx.evaluate.assert_has_calls(call_list)
+    # Evaluate the 'ELSE' section
+    ctx = MagicMock()
+    ctx.evaluate.side_effect = ([False] * (len(elif_lines)+1)) + [True]
+    assert [x for x in cond.evaluate(ctx)] == else_lines
+    ctx.evaluate.assert_has_calls(call_list + [call(else_arg)])
