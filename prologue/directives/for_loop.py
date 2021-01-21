@@ -30,18 +30,20 @@ class ForLoop(BlockDirective):
         self.loop = None
 
     def open(self, tag, arguments):
-        super().open(tag, arguments)
         # Sanity checks
         if tag != "for":
             raise PrologueError(f"Loop opening invoked with '{tag}'")
+        # Only open loop after the sanity checks
+        super().open(tag, arguments)
         # Record the loop argument
         self.loop = arguments
 
     def close(self, tag, arguments):
-        super().close(tag, arguments)
         # Sanity checks
         if tag != "endfor":
             raise PrologueError(f"Loop close invoked with '{tag}'")
+        # Only close loop after the sanity checks
+        super().close(tag, arguments)
 
     def evaluate(self, context):
         """ Repeats the embedded block as many times as required.
