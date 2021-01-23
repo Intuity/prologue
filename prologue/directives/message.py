@@ -18,11 +18,11 @@ from .base import LineDirective
 from .common import directive
 from ..common import PrologueError
 
-INFO  = ["info"]
-WARN  = ["warn", "warning", "todo", "fixme"]
-ERROR = ["error", "danger", "fatal"]
+INFO    = ["info"]
+WARNING = ["warn", "warning", "todo", "fixme"]
+ERROR   = ["error", "danger", "fatal"]
 
-@directive(*INFO, *WARN, *ERROR)
+@directive(*INFO, *WARNING, *ERROR)
 class Message(LineDirective):
     """ Prints message at different verbosity levels """
 
@@ -39,12 +39,12 @@ class Message(LineDirective):
             tag      : Tag used to trigger this directive
             arguments: Argument string provided to the directive
         """
+        global INFO, WARNING, ERROR
         self.msg_text = arguments
-        global INFO, WARN, ERROR
-        if   tag in INFO : self.msg_class = "INFO"
-        elif tag in WARN : self.msg_class = "WARNING"
-        elif tag in ERROR: self.msg_class = "ERROR"
-        else             : raise PrologueError(f"Unrecognised message type {tag}")
+        if   tag in INFO   : self.msg_class = "INFO"
+        elif tag in WARNING: self.msg_class = "WARNING"
+        elif tag in ERROR  : self.msg_class = "ERROR"
+        else               : raise PrologueError(f"Unrecognised message type {tag}")
 
     def evaluate(self, context):
         """ Print the message.
