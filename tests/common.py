@@ -15,19 +15,28 @@
 from random import choice, randint
 from string import ascii_letters
 
-def random_str(min_len, max_len, avoid=None):
+def random_str(min_len, max_len, avoid=None, spaces=False):
     """ Generate a random string of the specified length.
 
     Args:
         min_len: Minimum length of string
         max_len: Maximum length of string
         avoid  : Optional list of strings to avoid
+        spaces : Whether to include spaces
 
     Returns: Random ASCII string
     """
-    while True:
-        r_str = "".join([
+    def rand_ascii(min_len, max_len):
+        return "".join([
             choice(ascii_letters) for _x in range(randint(min_len, max_len))
         ])
+    while True:
+        r_str = ""
+        if spaces:
+            while len(r_str) < min_len:
+                r_str += rand_ascii(1, min(6, max_len - len(r_str)))
+                if len(r_str) < (min_len - 1): r_str += " "
+        else:
+            r_str = rand_ascii(min_len, max_len)
         if not isinstance(avoid, list) or r_str not in avoid:
             return r_str
