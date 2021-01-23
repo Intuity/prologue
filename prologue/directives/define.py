@@ -32,7 +32,9 @@ class Define(LineDirective):
             tag      : Tag used to trigger this directive
             arguments: Argument string provided to the directive
         """
-        # Sanity check
+        # Sanity checks
+        if tag != "define":
+            raise PrologueError(f"Define invoked with '{tag}'")
         num_args = self.count_args(arguments)
         if num_args not in (1, 2):
             raise PrologueError(f"Invalid form used for #define {arguments}")
@@ -72,6 +74,8 @@ class Undefine(LineDirective):
             arguments: Argument string provided to the directive
         """
         # Sanity check
+        if tag != "undef":
+            raise PrologueError(f"Undefine invoked with '{tag}'")
         if self.count_args(arguments) != 1:
             raise PrologueError(f"Invalid form used for #undef {arguments}")
         # Everything before the first space is taken as the variable name
