@@ -32,6 +32,8 @@ class Include(LineDirective):
             arguments: Argument string provided to the directive
         """
         # Sanity check
+        if tag != "include":
+            raise PrologueError(f"Include invoked with '{tag}'")
         if self.count_args(arguments) != 1:
             raise PrologueError(f"Invalid form used for #include {arguments}")
         # Store the filename
@@ -48,8 +50,27 @@ class Include(LineDirective):
         yield from context.pro.evaluate_inner(self.filename, context=context)
 
 @directive("import")
-class Import(Include.directive):
+class Import(LineDirective):
     """ Includes a file, but only once per preprocessing session """
+
+    def __init__(self, parent):
+        super().__init__(parent, yields=True)
+        self.filename = None
+
+    def invoke(self, tag, arguments):
+        """ Include a different file into the stream.
+
+        Args:
+            tag      : Tag used to trigger this directive
+            arguments: Argument string provided to the directive
+        """
+        # Sanity check
+        if tag != "import":
+            raise PrologueError(f"Import invoked with '{tag}'")
+        if self.count_args(arguments) != 1:
+            raise PrologueError(f"Invalid form used for #import {arguments}")
+        # Store the filename
+        self.filename = self.get_arg(arguments, 0)
 
     def evaluate(self, context):
         """ Import a file (include only once).
