@@ -36,7 +36,7 @@ class Line(str):
         self.number = number
 
     def __repr__(self):
-        return f"{self.file}@{self.number}: {self.line}"
+        return f"{self.file}@{self.number}: {self.__str__()}"
 
     def encase(self, substring):
         """ Encase a substring with the same file pointer and line number.
