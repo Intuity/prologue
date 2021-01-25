@@ -209,14 +209,11 @@ class Context(object):
 
         Returns: String with each recognised variable substituted for its value
         """
-        print(f"EXPR {expr}")
         # Pickup candidates for substitution
         rgx_const = re.compile(r"\b([a-z][a-z0-9_]*)\b", re.IGNORECASE)
         matches   = [x for x in rgx_const.finditer(expr)]
-        print(f"MATCHES: {matches}")
         # If no candidates detected, break out early
         if len(matches) == 0: return str(expr)
-        print("GOT CAND")
         # Substitute for each variable
         final = ""
         for idx, match in enumerate(matches):
@@ -227,10 +224,8 @@ class Context(object):
                         expr[matches[idx-1].span()[1]:match.span()[1]] if idx > 0 else
                         expr[:match.span()[1]]
                     )
-                    print(f"HIT UNDEF {var_name}")
                     continue
                 else:
-                    print("RAISING ERROR")
                     raise PrologueError(f"Referenced unknown variable '{var_name}'")
             # Pickup the section that comes before the match
             final += (
@@ -239,15 +234,12 @@ class Context(object):
             )
             # Make the substitution
             value = self.get_define(var_name)
-            print(f"SUBVAL {var_name} -> {value}")
             if isinstance(value, str):
                 final += self.flatten(value, skip_undef=skip_undef)
             else:
                 final += str(value)
-            print(f"FINAL: {final}")
         # Catch the trailing section
         final += expr[matches[-1].span()[1]:]
-        print(f"FINAL2: {final}")
         # Return concatenated string
         return final
 
@@ -262,12 +254,13 @@ class Context(object):
         """
         # First flatten out variable references
         flat = self.flatten(expr.strip(), skip_undef=skip_undef)
-        print(f"FLAT: {flat}")
         # Now evaluate (if we can)
         result = self.ast_eval(flat)
         if self.ast_eval.error:
             self.ast_eval.error = []
             return flat
+        else:
+            return result
 
     def substitute(self, line, implicit=True):
         """ Perform in-line substitutions for recognised variables.
