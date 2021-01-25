@@ -55,7 +55,7 @@ class Line(str):
         return self.encase(super().__getitem__(item))
 
     def split(self, *args, **kwargs):
-        return self.encase(super().split(*args, **kwargs))
+        return [self.encase(x) for x in super().split(*args, **kwargs)]
 
     def strip(self, *args, **kwargs):
         return self.encase(super().strip(*args, **kwargs))
