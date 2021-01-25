@@ -209,11 +209,14 @@ class Context(object):
 
         Returns: String with each recognised variable substituted for its value
         """
+        print(f"EXPR {expr}")
         # Pickup candidates for substitution
         rgx_const = re.compile(r"\b([a-z][a-z0-9_]*)\b", re.IGNORECASE)
         matches   = [x for x in rgx_const.finditer(expr)]
+        print(f"MATCHES: {matches}")
         # If no candidates detected, break out early
         if len(matches) == 0: return str(expr)
+        print("GOT CAND")
         # Substitute for each variable
         final = ""
         for idx, match in enumerate(matches):
@@ -224,8 +227,10 @@ class Context(object):
                         expr[matches[idx-1].span()[1]:match.span()[1]] if idx > 0 else
                         expr[:match.span()[1]]
                     )
+                    print(f"HIT UNDEF {var_name}")
                     continue
                 else:
+                    print("RAISING ERROR")
                     raise PrologueError(f"Referenced unknown variable '{var_name}'")
             # Pickup the section that comes before the match
             final += (
@@ -233,25 +238,36 @@ class Context(object):
                 expr[:match.span()[0]]
             )
             # Make the substitution
-            value  = self.get_define(var_name)
-            final += self.flatten(value) if isinstance(value, str) else str(value)
+            value = self.get_define(var_name)
+            print(f"SUBVAL {var_name} -> {value}")
+            if isinstance(value, str):
+                final += self.flatten(value, skip_undef=skip_undef)
+            else:
+                final += str(value)
+            print(f"FINAL: {final}")
         # Catch the trailing section
         final += expr[matches[-1].span()[1]:]
+        print(f"FINAL2: {final}")
         # Return concatenated string
-        return "".join(final)
+        return final
 
-    def evaluate(self, expr):
+    def evaluate(self, expr, skip_undef=False):
         """ Flatten an expression, then evaluate it.
 
         Args:
-            expr: The expression to evaluate
+            expr      : The expression to evaluate
+            skip_undef: Skip undefined variables (instead of erroring)
 
         Returns: Result of the expression
         """
         # First flatten out variable references
-        flat = self.flatten(expr.strip())
-        # Now evaluate
-        return self.ast_eval(flat)
+        flat = self.flatten(expr.strip(), skip_undef=skip_undef)
+        print(f"FLAT: {flat}")
+        # Now evaluate (if we can)
+        result = self.ast_eval(flat)
+        if self.ast_eval.error:
+            self.ast_eval.error = []
+            return flat
 
     def substitute(self, line, implicit=True):
         """ Perform in-line substitutions for recognised variables.
@@ -262,25 +278,21 @@ class Context(object):
 
         Returns: Line with values substituted
         """
-        f_file, f_line = line.file, line.number
+        f_file, f_line, line = line.file, line.number, str(line)
         # First look for explicit substitutions of the form '$(x)'
         exp_match = [x for x in Context.RGX_EXP.finditer(line)]
         final     = ""
-        for idx, match in enumerate(exp_match):
-            # Pickup the section that comes before the match
-            final += (
-                line[exp_match[idx-1].span()[1]:match.span()[0]] if idx > 0 else
-                line[:match.span()[0]]
+        exp_match = [x for x in Context.RGX_EXP.finditer(line)]
+        for match in exp_match[::-1]:
+            sub_val = self.evaluate(match.groups()[0][2:-1], skip_undef=True)
+            line    = (
+                line[:match.span()[0]] + str(sub_val) + line[match.span()[1]:]
             )
-            # Make the substitution (trimming off '$(' and ')')
-            final += str(self.evaluate(match.groups()[0][2:-1]))
-        # Catch the trailing section
-        line = (final + line[exp_match[-1].span()[1]:]) if exp_match else line
         # Secondly look for implicit substitutions
         if implicit:
             imp_match = [x for x in Context.RGX_IMP.finditer(line)]
             # Substitute each identified variable
-            for match in imp_match:
+            for match in imp_match[::-1]:
                 if self.has_define(match.groups()[0]):
                     line = (
                         line[:match.span()[0]] +
