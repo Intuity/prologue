@@ -18,7 +18,7 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from prologue.block import Block
-from prologue.common import PrologueError
+from prologue.common import PrologueError, Line
 from prologue.context import Context
 from prologue.registry import RegistryFile
 
@@ -235,3 +235,243 @@ def test_context_redefine():
             assert not pro.warning_message.called
         # Reset the mock for the next pass
         pro.reset_mock()
+
+def gen_rand_defs(ctx, state, avoid, numeric=False):
+    for _x in range(randint(10, 100)):
+        avd = list(state.keys()) + avoid
+        key = random_str(5, 10, avoid=avd)
+        val = randint(0, 10000) if numeric else random_str(5, 10, avoid=avd)
+        ctx.set_define(key, val)
+        state[key] = val
+
+def test_context_define_inheritance():
+    """ Check that variables are correctly inherited """
+    root    = Context(None)
+    child_a = Context(None, parent=root)
+    child_b = Context(None, parent=root)
+    # Setup a bunch of defines
+    root_defs, child_a_defs, child_b_defs = {}, {}, {}
+    gen_rand_defs(root,    root_defs,    [])
+    gen_rand_defs(child_a, child_a_defs, list(root_defs.keys()))
+    gen_rand_defs(
+        child_b, child_b_defs, list(root_defs.keys()) + list(child_a_defs.keys())
+    )
+    # Check that all contexts have access to the root definitions
+    for key, val in root_defs.items():
+        assert root.has_define(key)
+        assert child_a.has_define(key)
+        assert child_b.has_define(key)
+        assert root.get_define(key) == val
+        assert child_a.get_define(key) == val
+        assert child_b.get_define(key) == val
+    # Check that only child A can see its definitions
+    for key, val in child_a_defs.items():
+        assert not root.has_define(key)
+        assert child_a.has_define(key)
+        assert not child_b.has_define(key)
+        assert child_a.get_define(key) == val
+    # Check that only child B can see its definitions
+    for key, val in child_b_defs.items():
+        assert not root.has_define(key)
+        assert not child_a.has_define(key)
+        assert child_b.has_define(key)
+        assert child_b.get_define(key) == val
+
+def test_context_fork():
+    """ Fork the context and check defines are accessible """
+    pro = MagicMock()
+    # Setup a root context
+    root      = Context(pro)
+    root_defs = {}
+    gen_rand_defs(root, root_defs, [])
+    # Fork the context into two streams
+    child_a = root.fork()
+    child_b = root.fork()
+    # Check the forks are setup correctly
+    assert child_a.pro    == pro
+    assert child_b.pro    == pro
+    assert child_a.parent == root
+    assert child_b.parent == root
+    assert child_a.root   == root
+    assert child_b.root   == root
+    # Check defined variables are accessible
+    key, val = choice(list(root_defs.items()))
+    assert child_a.get_define(key) == val
+    assert child_b.get_define(key) == val
+    # Fork A stream a second time
+    subchild_a = child_a.fork()
+    subchild_b = child_b.fork()
+    assert subchild_a.pro    == pro
+    assert subchild_b.pro    == pro
+    assert subchild_a.parent == child_a
+    assert subchild_b.parent == child_b
+    assert subchild_a.root   == root
+    assert subchild_b.root   == root
+    key, val = choice(list(root_defs.items()))
+    assert subchild_a.get_define(key) == val
+    assert subchild_b.get_define(key) == val
+
+def test_context_join():
+    """ Join a forked context back into it's parent """
+    # Build the root context
+    root      = Context(None)
+    root_defs = {}
+    gen_rand_defs(root, root_defs, [])
+    # Fork a child context and setup unique state
+    child      = root.fork()
+    child_defs = {}
+    gen_rand_defs(child, child_defs, list(root_defs.keys()))
+    # Check root defines are visible to child
+    for key, val in root_defs.items(): assert child.get_define(key) == val
+    # Check none of the child's defines are visible to the root
+    for key in child_defs.keys(): assert not root.has_define(key)
+    # Join the context back into its parent
+    child.join()
+    # Check all defines are now present in the root
+    for key, val in root_defs.items(): assert root.get_define(key) == val
+    for key, val in child_defs.items(): assert child.get_define(key) == val
+
+def test_context_bad_join():
+    """ Attempt to join a root context back into a non-existent parent """
+    pro   = MagicMock()
+    ctx_a = Context(pro)
+    ctx_b = Context(pro)
+    with pytest.raises(PrologueError) as excinfo:
+        ctx_b.join()
+    assert "No parent configured for context object" == str(excinfo.value)
+
+def test_context_flatten():
+    """ Flatten constants declared within a string """
+    # Build a random context
+    ctx      = Context(None)
+    ctx_defs = {}
+    gen_rand_defs(ctx, ctx_defs, [], numeric=True)
+    # Run for a number of iterations
+    for _x in range(100):
+        # Build a random expression using the known defines
+        in_expr, out_expr = [], []
+        for idx in range(randint(5, 20)):
+            # Inject random operators
+            if idx > 0:
+                in_expr.append(choice([
+                    "+", "-", "/", "%", "&", "&&", "|", "||", "^"
+                ]))
+                out_expr.append(in_expr[-1])
+            # Choose a random define or number
+            if choice((True, False)):
+                in_expr.append(choice(list(ctx_defs.keys())))
+                out_expr.append(str(ctx_defs[in_expr[-1]]))
+            else:
+                in_expr.append(str(randint(0, 10000)))
+                out_expr.append(in_expr[-1])
+        # Flatten the expression
+        joiner = choice(("", " "))
+        assert ctx.flatten(joiner.join(in_expr)) == joiner.join(out_expr)
+
+def test_context_flatten_undef():
+    """ Attempt to flatten an expression with an undefined constant """
+    # Build a random context
+    ctx      = Context(None)
+    ctx_defs = {}
+    gen_rand_defs(ctx, ctx_defs, [], numeric=True)
+    # Run for a number of iterations
+    for _x in range(100):
+        # Build a random expression using the known defines
+        in_expr, out_expr = [], []
+        num_parts = randint(5, 20)
+        bad_idx   = choice(range(num_parts))
+        bad_def   = random_str(5, 10, avoid=list(ctx_defs.keys()))
+        for idx in range(num_parts):
+            # Inject random operators
+            if idx > 0:
+                in_expr.append(choice([
+                    "+", "-", "/", "%", "&", "&&", "|", "||", "^"
+                ]))
+                out_expr.append(in_expr[-1])
+            # Inject the bad define
+            if idx == bad_idx:
+                in_expr.append(bad_def)
+                out_expr.append(bad_def)
+            elif choice((True, False)):
+                in_expr.append(choice(list(ctx_defs.keys())))
+                out_expr.append(str(ctx_defs[in_expr[-1]]))
+            else:
+                in_expr.append(str(randint(0, 10000)))
+                out_expr.append(in_expr[-1])
+        # Flatten the expression
+        joiner     = choice(("", " "))
+        skip_undef = choice((True, False))
+        if skip_undef:
+            assert (
+                ctx.flatten(joiner.join(in_expr), skip_undef=skip_undef) ==
+                joiner.join(out_expr)
+            )
+        else:
+            with pytest.raises(PrologueError) as excinfo:
+                ctx.flatten(joiner.join(in_expr))
+            assert f"Referenced unknown variable '{bad_def}'"
+
+def test_context_evaluate():
+    """ Evaluate a random calculation with variable substitution """
+    # Build a random context
+    ctx      = Context(None)
+    ctx_defs = {}
+    gen_rand_defs(ctx, ctx_defs, [], numeric=True)
+    # Run for a number of iterations
+    for _x in range(100):
+        # Build a random expression using the known defines
+        in_expr, out_expr = [], []
+        for idx in range(randint(5, 20)):
+            # Inject random operators
+            if idx > 0:
+                in_expr.append(choice(["+", "-", "//", "/", "%", "*"]))
+                out_expr.append(in_expr[-1])
+            # Choose a random define or number
+            if choice((True, False)):
+                in_expr.append(choice(list(ctx_defs.keys())))
+                out_expr.append(str(ctx_defs[in_expr[-1]]))
+            else:
+                in_expr.append(str(randint(0, 10000)))
+                out_expr.append(in_expr[-1])
+        # Flatten the expression
+        joiner = choice(("", " "))
+        assert ctx.evaluate(joiner.join(in_expr)) == eval("".join(out_expr))
+
+def test_context_inline_sub():
+    """ Exercise inline substitution of variables """
+    # Build a random context
+    ctx      = Context(None)
+    ctx_defs = {}
+    gen_rand_defs(ctx, ctx_defs, [])
+    # Run for a number of iterations
+    for _x in range(100):
+        in_line, out_line = [], []
+        implicit_sub      = choice((True, False))
+        # Build a random line
+        for _y in range(randint(10, 30)):
+            # Inject an explicit variable
+            if choice((True, False)):
+                key = choice(list(ctx_defs.keys()))
+                in_line.append(f"$({key})")
+                out_line.append(ctx_defs[key])
+            # Inject an implicit variable
+            if choice((True, False)):
+                key = choice(list(ctx_defs.keys())[:2])
+                in_line.append(key)
+                out_line.append(ctx_defs[key] if implicit_sub else key)
+            # Inject random string
+            if choice((True, False)):
+                in_line.append(random_str(5, 10, avoid=list(ctx_defs.keys())))
+                out_line.append(in_line[-1])
+        # Test substitution
+        full_line = Line(" ".join(in_line), random_str(30, 40), randint(1, 10000))
+        result    = ctx.substitute(full_line, implicit=implicit_sub)
+        expected  = " ".join(out_line)
+        print(in_line)
+        print(out_line)
+        print(f"INPUT : {full_line}")
+        print(f"EXPECT: {expected}")
+        print(f"RESULT: {result}")
+        assert result.__str__() == expected
+        assert result.file      == full_line.file
+        assert result.number    == full_line.number
