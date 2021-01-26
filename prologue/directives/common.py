@@ -77,7 +77,10 @@ class DirectiveWrap(object):
     @property
     def is_line(self):
         """ Returns if this is a line directive """
-        return not self.is_block
+        return (
+            isinstance(self.directive, type) and
+            issubclass(self.directive, LineDirective)
+        )
 
     def is_opening(self, tag):
         """ Test if a particular tag is an opening tag.
@@ -133,6 +136,10 @@ def directive(*tags, opening=None, closing=None, transition=None):
     if closing   : closing    = [x.lower() for x in closing   ]
     # Setup the wrapper function
     def wrapper(_dirx):
+        if not opening:
+            raise PrologueError(
+                "At least one opening directive must be given"
+            )
         if not issubclass(_dirx, BlockDirective) and not issubclass(_dirx, LineDirective):
             raise PrologueError(
                 "Directive must be a subclass of BlockDirective or LineDirective"
@@ -140,6 +147,10 @@ def directive(*tags, opening=None, closing=None, transition=None):
         elif issubclass(_dirx, LineDirective) and (closing or transition):
             raise PrologueError(
                 "Closing or transition tags can only be used with a block directive"
+            )
+        elif issubclass(_dirx, BlockDirective) and not closing:
+            raise PrologueError(
+                "Closing tags must be specified for a block directive"
             )
         # Record tags against the registered class
         _dirx.OPENING    = opening
