@@ -23,19 +23,36 @@ from .registry import RegistryFile
 class Context(object):
     """ Keeps track of the parser's context """
 
-    def __init__(self, pro, parent=None):
+    def __init__(
+        self, pro, parent=None, implicit_sub=True, explicit_style=("$(", ")"),
+    ):
         """ Initialise the context
 
         Args:
-            pro   : Pointer to the root Prologue instance
-            parent: Pointer to the parent Context object prior to fork
+            pro           : Pointer to the root Prologue instance
+            parent        : Pointer to the parent Context object prior to fork
+            implicit_sub  : Whether to allow implicit substitutions (default: True)
+            explicit_style: Tuple of strings that define the explicit style
+                            (default: ('$(', ')'))
         """
-        self.pro       = pro
-        self.__defines = {}
-        self.parent    = parent
-        self.ast_eval  = asteval.Interpreter()
-        self.__stack   = []
-        self.__trace   = []
+        self.pro            = pro
+        self.parent         = parent
+        self.implicit_sub   = implicit_sub
+        self.explicit_style = explicit_style
+        self.__defines      = {}
+        self.ast_eval       = asteval.Interpreter()
+        self.__stack        = []
+        self.__trace        = []
+        # Define regular expression for variable substitution
+        rgx_exp_str = r"(" + "".join(f"[{x}]" for x in self.explicit_style[0])
+        if explicit_style[1]:
+            rgx_exp_str += r".*?"
+            rgx_exp_str += "".join(f"[{x}]" for x in self.explicit_style[1])
+        else:
+            rgx_exp_str += r"[a-z_][a-z0-9_]+"
+        rgx_exp_str += r")"
+        self.rgx_exp = re.compile(rgx_exp_str, flags=re.IGNORECASE)
+        self.rgx_imp = re.compile(r"\b([a-z][a-z0-9_]{0,})\b", flags=re.IGNORECASE)
 
     @property
     def defines(self):
@@ -179,7 +196,7 @@ class Context(object):
 
         Returns: Instance of Context
         """
-        return Context(self.pro, parent=self)
+        return Context(self.pro, parent=self, implicit_sub=self.implicit_sub)
 
     def join(self):
         """ Joins a child context object back into it's parent.
@@ -195,10 +212,6 @@ class Context(object):
     # ==========================================================================
     # Expression Evaluation
     # ==========================================================================
-
-    # Define regular expression for variable substitution
-    RGX_EXP = re.compile(r"([$][(].*?[)])")
-    RGX_IMP = re.compile(r"\b([a-z][a-z0-9_]{0,})\b", flags=re.IGNORECASE)
 
     def flatten(self, expr, skip_undef=False):
         """ Flatten an expression by substituting for known variables.
@@ -262,7 +275,7 @@ class Context(object):
         else:
             return result
 
-    def substitute(self, line, implicit=True):
+    def substitute(self, line, implicit=None):
         """ Perform in-line substitutions for recognised variables.
 
         Args:
@@ -271,19 +284,26 @@ class Context(object):
 
         Returns: Line with values substituted
         """
+        # If implicit not given, then it defaults to instance version
+        if implicit == None: implicit = self.implicit_sub
+        # Pickup the input line's attributes
         f_file, f_line, line = line.file, line.number, str(line)
         # First look for explicit substitutions of the form '$(x)'
-        exp_match = [x for x in Context.RGX_EXP.finditer(line)]
+        exp_match = [x for x in self.rgx_exp.finditer(line)]
         final     = ""
-        exp_match = [x for x in Context.RGX_EXP.finditer(line)]
+        exp_match = [x for x in self.rgx_exp.finditer(line)]
         for match in exp_match[::-1]:
-            sub_val = self.evaluate(match.groups()[0][2:-1], skip_undef=True)
+            m_expr  = match.groups()[0][
+                len(self.explicit_style[0]):
+                len(match.groups()[0])-len(self.explicit_style[1])
+            ]
+            sub_val = self.evaluate(m_expr, skip_undef=True)
             line    = (
                 line[:match.span()[0]] + str(sub_val) + line[match.span()[1]:]
             )
         # Secondly look for implicit substitutions
         if implicit:
-            imp_match = [x for x in Context.RGX_IMP.finditer(line)]
+            imp_match = [x for x in self.rgx_imp.finditer(line)]
             # Substitute each identified variable
             for match in imp_match[::-1]:
                 if self.has_define(match.groups()[0]):
