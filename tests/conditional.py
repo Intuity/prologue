@@ -35,16 +35,18 @@ def test_conditional_single():
     cond.open("if", "a == b")
     assert cond.opened and not cond.closed
     assert cond.if_section    != None
-    assert cond.if_section[0] == "a == b"
-    assert isinstance(cond.if_section[1], Block)
+    assert cond.if_section[0] == "if"
+    assert cond.if_section[1] == "a == b"
+    assert isinstance(cond.if_section[2], Block)
     assert cond.elif_sections == []
     assert cond.else_section  == None
     # Close the block
     cond.close("endif", "")
     assert cond.opened and cond.closed
     assert cond.if_section != None
-    assert cond.if_section[0] == "a == b"
-    assert isinstance(cond.if_section[1], Block)
+    assert cond.if_section[0] == "if"
+    assert cond.if_section[1] == "a == b"
+    assert isinstance(cond.if_section[2], Block)
     assert cond.elif_sections == []
     assert cond.else_section  == None
 
@@ -64,11 +66,14 @@ def test_conditional_multiple():
     cond.close("endif", "")
     # Check the contents
     assert cond.opened and cond.closed
-    assert cond.if_section[0]      == if_arg
+    assert cond.if_section[0]      == "if"
+    assert cond.if_section[1]      == if_arg
     assert len(cond.elif_sections) == len(elif_args)
     for elif_sect, elif_arg in zip(cond.elif_sections, elif_args):
-        assert elif_sect[0] == elif_arg
-    assert cond.else_section[0] == else_arg
+        assert elif_sect[0] == "elif"
+        assert elif_sect[1] == elif_arg
+    assert cond.else_section[0] == "else"
+    assert cond.else_section[1] == else_arg
 
 def test_conditional_bad_open():
     """ Test opening a conditional with a random string """
@@ -101,8 +106,8 @@ def test_conditional_bad_after_else():
     cond.open("if", random_str(5, 10))
     cond.transition("elif", random_str(5, 10))
     cond.transition("else", random_str(5, 10))
-    elif_sects   = cond.elif_sections[:]
-    e_arg, e_blk = cond.else_section
+    elif_sects          = cond.elif_sections[:]
+    e_tag, e_arg, e_blk = cond.else_section
     # Try a number of random transitions
     for _x in range(10):
         use_elif = choice((True, False))
@@ -114,8 +119,9 @@ def test_conditional_bad_after_else():
         # Sanity check result
         assert f"Transition '{'elif' if use_elif else 'else'}' detected after 'else' clause" in str(excinfo.value)
         assert cond.elif_sections   == elif_sects
-        assert cond.else_section[0] == e_arg
-        assert cond.else_section[1] == e_blk
+        assert cond.else_section[0] == e_tag
+        assert cond.else_section[1] == e_arg
+        assert cond.else_section[2] == e_blk
 
 def test_conditional_bad_close():
     """ Try closing the conditional without 'endif' """
@@ -168,17 +174,20 @@ def test_conditional_append():
     # Close the conditional
     cond.close("endif", "")
     # Check the lines are stored correctly for 'IF'
-    assert cond.if_section[0]         == if_arg
-    assert cond.if_section[1].content == if_lines
+    assert cond.if_section[0]         == "if"
+    assert cond.if_section[1]         == if_arg
+    assert cond.if_section[2].content == if_lines
     # Now check 'ELIF' sections
     assert len(elif_args) == len(elif_lines)
     assert len(elif_args) == len(cond.elif_sections)
     for arg, lines, sect in zip(elif_args, elif_lines, cond.elif_sections):
-        assert sect[0]         == arg
-        assert sect[1].content == lines
+        assert sect[0]         == "elif"
+        assert sect[1]         == arg
+        assert sect[2].content == lines
     # Finally check 'ELSE' section
-    assert cond.else_section[0]         == else_arg
-    assert cond.else_section[1].content == else_lines
+    assert cond.else_section[0]         == "else"
+    assert cond.else_section[1]         == else_arg
+    assert cond.else_section[2].content == else_lines
 
 
 def test_conditional_append_unopened():
