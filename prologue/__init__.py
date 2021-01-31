@@ -175,10 +175,10 @@ class Prologue(object):
         # Check all tags
         for tag in dirx.tags:
             # Check if the tag collides with an existing directive
-            if tag in self.directives:
+            if tag.lower() in self.directives:
                 raise PrologueError(f"Directive already registered for tag '{tag}'")
         # Register the directive
-        for tag in dirx.tags: self.directives[tag] = dirx
+        for tag in dirx.tags: self.directives[tag.lower()] = dirx
 
     def get_directive(self, tag):
         """
@@ -191,16 +191,14 @@ class Prologue(object):
 
         Returns: Directive function if known, otherwise None
         """
-        # If this is an 'end' directive, convert tag
-        if tag.startswith("end") and tag[3:] in self.directives: tag = tag[3:]
         # Check if a directive exists for this tag
-        if tag not in self.directives:
+        if tag.lower() not in self.directives:
             if self.shared_delimiter:
                 return None
             else:
                 raise PrologueError(f"No directive known for tag '{tag}'")
         # Return the directive
-        return self.directives[tag]
+        return self.directives[tag.lower()]
 
     # ==========================================================================
     # Evaluation
@@ -240,19 +238,19 @@ class Prologue(object):
         # Sanity check a context object was provided
         if not isinstance(context, Context):
             raise PrologueError(f"An invalid context was provided: {context}")
-        # Create regular expressions for recognising directives
-        re_anchored = re.compile(
-            f"^[\s]*{self.delimiter}[\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
-        )
-        re_floating = re.compile(
-            f"^(.*?){self.delimiter}[\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
-        )
         # Stop infinite recursion by checking if this file is already in the stack
         if r_file in context.stack:
             raise PrologueError(
                 f"Detected infinite recursion when including file '{filename}' "
                 f"- file stack: {', '.join([x.filename for x in context.stack])}"
             )
+        # Create regular expressions for recognising directives
+        re_anchored = re.compile(
+            r"^[\s]*[" + self.delimiter + r"][\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
+        )
+        re_floating = re.compile(
+            r"^(.*?)[" + self.delimiter + r"][\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
+        )
         # Push the current file into the stack
         context.stack_push(r_file)
         # Start parsing
@@ -274,13 +272,15 @@ class Prologue(object):
                 tag            = tag.lower()
                 d_wrap         = self.get_directive(tag)
                 if arguments.endswith(":"): arguments = arguments[:-1]
-                if d_wrap.is_line:
+                if d_wrap and d_wrap.is_line:
                     l_dir = d_wrap.directive(active)
                     l_dir.invoke(tag, arguments.strip())
                     if   active      : active.append(l_dir)
                     elif l_dir.yields: yield from l_dir.evaluate(context)
                     else             : l_dir.evaluate(context)
-                elif d_wrap.is_block:
+                    # Move on to the next line
+                    continue
+                elif d_wrap and d_wrap.is_block:
                     # Call the directive
                     if d_wrap.is_opening(tag):
                         block   = d_wrap.directive(active)
@@ -305,32 +305,31 @@ class Prologue(object):
                                 active.evaluate(context.fork())
                         # Pop the stack
                         active = active.parent
-                    else:
-                        raise PrologueError("Unrecognised directive transition")
-                else:
-                    raise PrologueError(f"Unknown directive type for tag {tag}")
-                continue
+                    # Move on to the next line
+                    continue
             # Test if the line matches a floating directive
             floating = re_floating.match(line)
-            if floating:
+            if floating != None:
                 prior, tag, arguments = floating.groups()
+                tag                   = tag.lower()
                 arguments             = arguments.strip()
                 d_wrap                = self.get_directive(tag)
-                if d_wrap.is_block:
+                if d_wrap and d_wrap.is_block:
                     raise PrologueError(
-                        f"The directive '{tag}' can only be used with a "
-                        f"delimiter as it is a block directive"
+                        f"The directive '{tag}' can only be used with an "
+                        f"anchored delimiter as it is a block directive"
                     )
-                if arguments.endswith(":"): arguments = arguments[:-1]
-                # Yield the text before the directive
-                yield line.encase(prior.rstrip())
-                # Yield the contents returned from the directive
-                l_dir = d_wrap.directive(active)
-                l_dir.invoke(tag, arguments.strip())
-                if   active      : active.append(l_dir)
-                elif l_dir.yields: yield from l_dir.evaluate(context)
-                else             : l_dir.evaluate(context)
-                continue
+                elif d_wrap:
+                    if arguments.endswith(":"): arguments = arguments[:-1]
+                    # Yield the text before the directive
+                    yield line.encase(prior.rstrip())
+                    # Yield the contents returned from the directive
+                    l_dir = d_wrap.directive(active)
+                    l_dir.invoke(tag, arguments.strip())
+                    if   active      : active.append(l_dir)
+                    elif l_dir.yields: yield from l_dir.evaluate(context)
+                    else             : l_dir.evaluate(context)
+                    continue
             # Otherwise, this is just a line!
             if active: active.append(line)
             else     : yield line
@@ -339,7 +338,7 @@ class Prologue(object):
             dir_stack = [x for x in active.stack if isinstance(x, Directive)]
             raise PrologueError(
                 f"Some directives remain unclosed at end of {active}: "
-                + ', '.join((type(x).OPENING[0] for x in dir_stack))
+                + ", ".join((type(x).OPENING[0] for x in dir_stack))
             )
         # Pop the file being parsed from the stack
         if context.stack_pop() != r_file:
