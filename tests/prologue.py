@@ -71,7 +71,7 @@ def test_prologue_bad_shared():
     # Check a bad value doesn't work
     with pytest.raises(PrologueError) as excinfo:
         Prologue(shared_delimiter="banana")
-    assert "Shared delimiter should be True or False" in str(excinfo.value)
+    assert "Shared delimiter must be True or False: banana" in str(excinfo.value)
     # Check both sane values work
     for val in (True, False):
         assert Prologue(shared_delimiter=val).shared_delimiter == val
