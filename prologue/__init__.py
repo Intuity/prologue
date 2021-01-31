@@ -24,18 +24,44 @@ from .registry import Registry
 class Prologue(object):
     """ Top-level of the preprocessor """
 
-    def __init__(self, delimiter="#", shared_delimiter=False):
+    def __init__(
+        self,
+        comment         ="#",
+        delimiter       ="#",
+        shared_delimiter=False,
+        implicit_sub    =True,
+        explicit_style  =("$(", ")"),
+    ):
         """ Initialise the preprocessor.
 
         Args:
-            delimiter       : Specify the character to use as the delimiter
+            comment         : The single line comment sequence (default: '#')
+            delimiter       : Specify the sequence to use as the delimiter
                               (default: '#')
             shared_delimiter: Delimiter is also used to signify a comment
                               (default: False)
+            implicit_sub    : Allow implicit substitutions (default: True)
+            explit_style    : Style used for identifying explicit substitutions,
+                              this should be a tuple of the prefix and suffix of
+                              the format (default: ('$(', ')')))
         """
+        # Sanity checks
+        if not isinstance(comment, str):
+            raise PrologueError(f"Comment sequence must be a string: {comment}")
+        if not isinstance(delimiter, str):
+            raise PrologueError(f"Delimiter sequence must be a string: {delimiter}")
+        if shared_delimiter not in (True, False):
+            raise PrologueError(f"Shared delimiter must be True or False: {shared_delimiter}")
+        if implicit_sub not in (True, False):
+            raise PrologueError(f"Implicit substitution must be True or False: {implicit_sub}")
+        if not isinstance(explicit_style, tuple):
+            raise PrologueError(f"Explicit style must be a tuple: {explicit_style}")
         # Store attributes
+        self.comment          = comment
         self.delimiter        = delimiter
         self.shared_delimiter = shared_delimiter
+        self.implicit_sub     = implicit_sub
+        self.explicit_style   = explicit_style
         # Create empty message handling callbacks
         self.callback_debug   = None
         self.callback_info    = None
@@ -213,7 +239,11 @@ class Prologue(object):
         Yields: Stream of fully preprocessed lines
         """
         # Create a context object used for tracking variables and parse state
-        context = Context(self)
+        context = Context(
+            self,
+            implicit_sub  =self.implicit_sub,
+            explicit_style=self.explicit_style,
+        )
         # Use inner evaluation routine to get each line one at a time
         self.lookup = []
         for line in self.evaluate_inner(filename, context):
@@ -257,6 +287,9 @@ class Prologue(object):
         active      = None
         accumulated = None
         for idx, line in enumerate(r_file.contents):
+            # If comment and delimiter are different, remove everything after comment
+            if self.comment != self.delimiter:
+                line = line.split(self.comment)[0]
             # Handle line continuation
             if line and line[-1] == "\\":
                 accumulated = (accumulated + line[:-1]) if accumulated else line[:-1]
