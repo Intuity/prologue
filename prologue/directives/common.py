@@ -34,6 +34,10 @@ class DirectiveWrap(object):
         self.directive = dirx
         if not issubclass(dirx, Directive):
             raise PrologueError(f"Item is not a subclass of Directive: {dirx}")
+        # Force tags to be case insensitive
+        if opening   : opening    = [x.lower() for x in opening   ]
+        if closing   : closing    = [x.lower() for x in closing   ]
+        if transition: transition = [x.lower() for x in transition]
         # Check tags
         opening    = tuple(opening) if isinstance(opening, list) else opening
         closing    = tuple(closing) if isinstance(closing, list) else closing
