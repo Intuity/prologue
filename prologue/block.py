@@ -49,6 +49,8 @@ class Block:
                 (not isinstance(entry, Directive) and isinstance(entry, Block))
             ):
                 yield from entry.evaluate(context)
+            elif isinstance(entry, Directive):
+                entry.evaluate(context)
             else:
                 yield entry
 
