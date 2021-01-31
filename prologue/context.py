@@ -136,8 +136,7 @@ class Context(object):
         # Warn about collision
         if warning and key in self.defines:
             self.pro.warning_message(
-                f"Value already defined for key {key}",
-                { "key": key, "value": value },
+                f"Value already defined for key {key}", key=key, value=value,
             )
         # Store the define
         self.__defines[key] = value
@@ -206,7 +205,7 @@ class Context(object):
         if not self.parent:
             raise PrologueError("No parent configured for context object")
         for key, value in self.__defines.items():
-            self.parent.set_define(key, value)
+            self.parent.set_define(key, value, warning=False)
         return self.parent
 
     # ==========================================================================
