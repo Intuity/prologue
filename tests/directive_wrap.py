@@ -38,13 +38,14 @@ def test_directive_wrap():
         print(f"Trying {dirx}")
         wrapped = DirectiveWrap(dirx, opening, closing=closing, transition=transition)
         assert wrapped.directive  == dirx
-        assert wrapped.opening    == tuple(opening)
-        assert wrapped.closing    == (tuple(closing) if closing else tuple())
-        assert wrapped.transition == (tuple(transition) if transition else tuple())
+        assert wrapped.opening    == tuple([x.lower() for x in opening])
+        assert wrapped.closing    == (tuple([x.lower() for x in closing]) if closing else tuple())
+        assert wrapped.transition == (tuple([x.lower() for x in transition]) if transition else tuple())
         # Check all tags
         assert wrapped.tags == (
-            tuple(opening) + (tuple(transition) if transition else tuple()) +
-            (tuple(closing) if closing else tuple())
+            tuple([x.lower() for x in opening]) +
+            (tuple([x.lower() for x in transition]) if transition else tuple()) +
+            (tuple([x.lower() for x in closing]) if closing else tuple())
         )
         # Check whether block and line directives are correctly identified
         assert wrapped.is_block == (dirx == BlockDirx)
@@ -52,14 +53,14 @@ def test_directive_wrap():
         # Test the opening tags
         for _x in range(100):
             if choice((True, False)):
-                assert wrapped.is_opening(choice(opening))
+                assert wrapped.is_opening(choice(opening).lower())
             elif (dirx == BlockDirective) and choice((True, False)):
-                assert not wrapped.is_opening(choice(closing + transition))
+                assert not wrapped.is_opening(choice(closing + transition).lower())
             else:
-                rand_tag = random_str(5, 10, avoid=(
+                rand_tag = random_str(5, 10, avoid=[x.lower() for x in (
                     opening + (closing if closing else []) +
                     (transition if transition else [])
-                ))
+                )])
                 with pytest.raises(PrologueError) as excinfo:
                     wrapped.is_opening(rand_tag)
                 assert f"Tag is not known by directive: {rand_tag}" == str(excinfo.value)
@@ -141,7 +142,7 @@ def test_directive_wrap_bad():
         # Test for bad tags
         with pytest.raises(PrologueError) as excinfo:
             tags = [random_str(30, 50, spaces=True) for _x in range(5)] if choice((True, False)) else ([""] * 5)
-            DirectiveWrap(BlockDirective, tags, transition=tags, closing=tags,)
+            DirectiveWrap(BlockDirective, tags, transition=tags, closing=tags)
         assert (
             "Directive tag cannot contain spaces and must be at least one "
             "character in length"

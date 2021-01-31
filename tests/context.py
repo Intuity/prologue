@@ -100,7 +100,7 @@ def test_context_bad_push():
     """ Try pushing a non-RegistryFile object onto the stack """
     ctx = Context(None)
     for obj in [
-        choice((True, False)), randint(0, 10000), random_str(5, 10),
+        choice((True, False)), randint(1, 10000), random_str(5, 10),
         random_str(30, 50, spaces=True), {}, [], Context(None),
     ]:
         with pytest.raises(PrologueError) as excinfo:
@@ -240,7 +240,7 @@ def gen_rand_defs(ctx, state, avoid, numeric=False):
     for _x in range(randint(10, 100)):
         avd = list(state.keys()) + avoid
         key = random_str(5, 10, avoid=avd)
-        val = randint(0, 10000) if numeric else random_str(5, 10, avoid=avd)
+        val = randint(1, 10000) if numeric else random_str(5, 10, avoid=avd)
         ctx.set_define(key, val)
         state[key] = val
 
@@ -362,7 +362,7 @@ def test_context_flatten():
                 in_expr.append(choice(list(ctx_defs.keys())))
                 out_expr.append(str(ctx_defs[in_expr[-1]]))
             else:
-                in_expr.append(str(randint(0, 10000)))
+                in_expr.append(str(randint(1, 10000)))
                 out_expr.append(in_expr[-1])
         # Flatten the expression
         joiner = choice(("", " "))
@@ -396,7 +396,7 @@ def test_context_flatten_undef():
                 in_expr.append(choice(list(ctx_defs.keys())))
                 out_expr.append(str(ctx_defs[in_expr[-1]]))
             else:
-                in_expr.append(str(randint(0, 10000)))
+                in_expr.append(str(randint(1, 10000)))
                 out_expr.append(in_expr[-1])
         # Flatten the expression
         joiner     = choice(("", " "))
@@ -431,7 +431,7 @@ def test_context_evaluate():
                 in_expr.append(choice(list(ctx_defs.keys())))
                 out_expr.append(str(ctx_defs[in_expr[-1]]))
             else:
-                in_expr.append(str(randint(0, 10000)))
+                in_expr.append(str(randint(1, 10000)))
                 out_expr.append(in_expr[-1])
         # Flatten the expression
         joiner = choice(("", " "))
