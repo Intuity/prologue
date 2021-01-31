@@ -35,14 +35,19 @@ def test_block_stack():
 
 def test_block_contents():
     """ Test that contents can be pushed into and read back from a block """
-    class MockDirective(Directive):
+    class YieldingDir(Directive):
         def evaluate(self, ctx):
             yield "MockDirA"
             yield "MockDirB"
+    was_called = [False]
+    class NonYieldingDir(Directive):
+        def evaluate(self, ctx):
+            was_called[0] = True
     block = Block(None)
     block.append("Line 1")
     block.append("Line 2")
-    block.append(MockDirective(block))
+    block.append(YieldingDir(block))
+    block.append(NonYieldingDir(block, yields=False))
     block.append("Line 3")
     block.append("Line 4")
     result = [x for x in block.evaluate(None)]
@@ -52,6 +57,7 @@ def test_block_contents():
     assert result[3] == "MockDirB"
     assert result[4] == "Line 3"
     assert result[5] == "Line 4"
+    assert was_called[0]
 
 def test_block_bad_content():
     """ Try to append a bad entry to a block """
