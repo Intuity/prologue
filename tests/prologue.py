@@ -14,7 +14,7 @@
 
 from random import randint, choice
 from pathlib import Path
-from unittest.mock import MagicMock, call, PropertyMock
+from unittest.mock import MagicMock, call, PropertyMock, ANY
 
 import pytest
 
@@ -404,9 +404,11 @@ def test_prologue_evaluate_inner_line(mocker, should_yield):
     mocker.patch.object(RegistryFile, "__init__", lambda x: None)
     m_con = mocker.patch.object(RegistryFile, "contents", new_callable=PropertyMock)
     # Create a line directive
+    dirx_inst = []
     class LineDirx(LineDirective):
         def __init__(self, parent):
             super().__init__(parent, yields=should_yield)
+            dirx_inst.append(self)
     mocker.patch.object(LineDirx, "invoke",   autospec=True)
     mocker.patch.object(LineDirx, "evaluate", autospec=True)
     dirx_text = "LINE DIRX " + random_str(20, 30, spaces=True) + " END LINE"
@@ -442,7 +444,7 @@ def test_prologue_evaluate_inner_line(mocker, should_yield):
             if use_dirx and     anchor : output.append(dirx_text)
             if use_dirx and not anchor : output.append(dirx_text)
         # Accumulate calls
-        if use_dirx: dirx_calls.append((use_tag, argument))
+        if use_dirx: dirx_calls.append(call(ANY, use_tag.lower(), argument))
     m_con.return_value = [Line(x, r_file, i+1) for i, x in enumerate(contents)]
     # Pull all lines out of the evaluate loop
     result = [x for x in pro.evaluate_inner(r_file.filename, ctx)]
@@ -452,11 +454,7 @@ def test_prologue_evaluate_inner_line(mocker, should_yield):
     m_reg.resolve.assert_has_calls([call(r_file.filename)])
     for got_out, exp_out in zip(result, output):
         assert str(got_out) == exp_out.rstrip(" ")
-    assert len(LineDirx.invoke.call_args_list) == len(dirx_calls)
-    for dirx_call, (exp_tag, exp_args) in zip(LineDirx.invoke.call_args_list, dirx_calls):
-        assert isinstance(dirx_call.args[0], LineDirx)
-        assert dirx_call.args[1] == exp_tag.lower()
-        assert dirx_call.args[2] == exp_args
+    LineDirx.invoke.assert_has_calls(dirx_calls)
 
 @pytest.mark.parametrize("should_yield", [True, False])
 def test_prologue_evaluate_inner_block(mocker, should_yield):
@@ -531,9 +529,9 @@ def test_prologue_evaluate_inner_block(mocker, should_yield):
         elif not use_dirx                 : output.append(contents[-1])
         # Accumulate calls
         if use_dirx:
-            open_calls.append((open_tag, open_arg))
-            for arg in tran_args: tran_calls.append((tran_tag, arg))
-            close_calls.append((close_tag, close_arg))
+            open_calls.append(call(ANY, open_tag.lower(), open_arg))
+            for arg in tran_args: tran_calls.append(call(ANY, tran_tag.lower(), arg))
+            close_calls.append(call(ANY, close_tag.lower(), close_arg))
     m_con.return_value = [Line(x, r_file, i+1) for i, x in enumerate(contents)]
     # Pull all lines out of the evaluate loop
     result = [x for x in pro.evaluate_inner(r_file.filename, ctx)]
@@ -543,21 +541,9 @@ def test_prologue_evaluate_inner_block(mocker, should_yield):
     m_reg.resolve.assert_has_calls([call(r_file.filename)])
     for got_out, exp_out in zip(result, output):
         assert str(got_out) == exp_out.rstrip(" ")
-    assert len(BlockDirx.open.call_args_list      ) == len(open_calls)
-    assert len(BlockDirx.transition.call_args_list) == len(tran_calls)
-    assert len(BlockDirx.close.call_args_list     ) == len(close_calls)
-    for dirx_call, (exp_tag, exp_args) in zip(BlockDirx.open.call_args_list, open_calls):
-        assert isinstance(dirx_call.args[0], BlockDirx)
-        assert dirx_call.args[1] == exp_tag.lower()
-        assert dirx_call.args[2] == exp_args
-    for dirx_call, (exp_tag, exp_args) in zip(BlockDirx.transition.call_args_list, tran_calls):
-        assert isinstance(dirx_call.args[0], BlockDirx)
-        assert dirx_call.args[1] == exp_tag.lower()
-        assert dirx_call.args[2] == exp_args
-    for dirx_call, (exp_tag, exp_args) in zip(BlockDirx.close.call_args_list, close_calls):
-        assert isinstance(dirx_call.args[0], BlockDirx)
-        assert dirx_call.args[1] == exp_tag.lower()
-        assert dirx_call.args[2] == exp_args
+    BlockDirx.open.assert_has_calls(open_calls)
+    BlockDirx.transition.assert_has_calls(tran_calls)
+    BlockDirx.close.assert_has_calls(close_calls)
 
 def test_prologue_evaluate_inner_block_floating(mocker):
     """ Test that floating block directives are flagged """
