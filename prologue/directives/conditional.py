@@ -111,7 +111,8 @@ class Conditional(BlockDirective):
             if (
                 (tag == "ifdef"  and     context.has_define(cond)         ) or
                 (tag == "ifndef" and not context.has_define(cond)         ) or
-                (tag not in ("ifdef", "ifndef") and context.evaluate(cond))
+                (tag not in ("ifdef", "ifndef") and context.evaluate(cond)) or
+                (tag == "else"                                            )
             ):
                 yield from block.evaluate(context)
                 context.join()
