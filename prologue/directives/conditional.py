@@ -17,7 +17,11 @@ from ..block import Block
 from .common import directive
 from ..common import PrologueError
 
-@directive(opening=["if"], transition=["elif", "else"], closing=["endif"])
+@directive(
+    opening   =["if", "ifdef", "ifndef"],
+    transition=["elif", "else"],
+    closing   =["endif"]
+)
 class Conditional(BlockDirective):
     """ Conditional directive supporting IF/ELIF/ELSE/ENDIF sections """
 
@@ -35,12 +39,12 @@ class Conditional(BlockDirective):
             arguments: Argument string following the directive
         """
         # Sanity checks
-        if tag != "if":
+        if tag not in ("if", "ifdef", "ifndef"):
             raise PrologueError(f"Conditional opening invoked with '{tag}'")
         # Now open the tag
         super().open(tag, arguments)
         # Record the section
-        self.if_section = arguments, Block(self)
+        self.if_section = tag, arguments, Block(self)
 
     def transition(self, tag, arguments):
         """ Transition between different sections with ELIF/ELSE.
@@ -58,9 +62,9 @@ class Conditional(BlockDirective):
         super().transition(tag, arguments)
         # Register the tag
         if tag == "elif":
-            self.elif_sections.append((arguments, Block(self)))
+            self.elif_sections.append((tag, arguments, Block(self)))
         else:
-            self.else_section = arguments, Block(self)
+            self.else_section = tag, arguments, Block(self)
 
     def close(self, tag, arguments):
         """ Close the directive block with ENDIF.
@@ -87,9 +91,9 @@ class Conditional(BlockDirective):
         elif self.closed:
             raise PrologueError("Trying to append a line to a closed conditional")
         # Append to the latest open block
-        if   self.else_section          : self.else_section[1].append(entry)
-        elif len(self.elif_sections) > 0: self.elif_sections[-1][1].append(entry)
-        else                            : self.if_section[1].append(entry)
+        if   self.else_section          : self.else_section[2].append(entry)
+        elif len(self.elif_sections) > 0: self.elif_sections[-1][2].append(entry)
+        else                            : self.if_section[2].append(entry)
 
     def evaluate(self, context):
         """ Selects the correct block to evaluate based upon conditions.
@@ -103,7 +107,12 @@ class Conditional(BlockDirective):
         sections = [self.if_section, *self.elif_sections]
         if self.else_section: sections.append(self.else_section)
         # Check which section is active
-        for cond, block in sections:
-            if context.evaluate(cond):
+        for tag, cond, block in sections:
+            if (
+                (tag == "ifdef"  and     context.has_define(cond)         ) or
+                (tag == "ifndef" and not context.has_define(cond)         ) or
+                (tag not in ("ifdef", "ifndef") and context.evaluate(cond))
+            ):
                 yield from block.evaluate(context)
+                context.join()
                 break
