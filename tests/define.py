@@ -125,19 +125,14 @@ def test_define_bad_tag():
         assert define.value == None
 
 def test_define_bad_form():
-    """ Try defining a value with bad number of arguments """
-    for _x in range(100):
-        define = Define.directive(None)
-        # Check initial state
-        assert define.name  == None
-        assert define.value == None
-        # Invoke with a random define name
-        zero_args = choice((True, False))
-        bad_args  = (
-            "" if zero_args else " ".join([random_str(5, 10) for _x in range(randint(3, 10))])
-        )
-        with pytest.raises(PrologueError) as excinfo:
-            define.invoke("define", bad_args)
-        assert f"Invalid form used for #define '{bad_args}'"
-        assert define.name  == None
-        assert define.value == None
+    """ Try defining a value with no arguments """
+    define = Define.directive(None)
+    # Check initial state
+    assert define.name  == None
+    assert define.value == None
+    # Invoke with a random define name
+    with pytest.raises(PrologueError) as excinfo:
+        define.invoke("define", "")
+    assert "Invalid form used for #define" == str(excinfo.value)
+    assert define.name  == None
+    assert define.value == None

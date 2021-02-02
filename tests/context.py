@@ -229,7 +229,7 @@ def test_context_redefine():
             assert pro.warning_message.called
             pro.warning_message.assert_has_calls([call(
                 f"Value already defined for key {use_key}",
-                { "key": use_key, "value": new_val },
+                key=use_key, value=new_val,
             )])
         else:
             assert not pro.warning_message.called
@@ -353,9 +353,7 @@ def test_context_flatten():
         for idx in range(randint(5, 20)):
             # Inject random operators
             if idx > 0:
-                in_expr.append(choice([
-                    "+", "-", "/", "%", "&", "&&", "|", "||", "^"
-                ]))
+                in_expr.append(choice(["+", "-", "&", "|"]))
                 out_expr.append(in_expr[-1])
             # Choose a random define or number
             if choice((True, False)):
@@ -366,7 +364,7 @@ def test_context_flatten():
                 out_expr.append(in_expr[-1])
         # Flatten the expression
         joiner = choice(("", " "))
-        assert ctx.flatten(joiner.join(in_expr)) == joiner.join(out_expr)
+        assert ctx.flatten(joiner.join(in_expr)) == " ".join(out_expr)
 
 def test_context_flatten_undef():
     """ Attempt to flatten an expression with an undefined constant """
@@ -384,14 +382,12 @@ def test_context_flatten_undef():
         for idx in range(num_parts):
             # Inject random operators
             if idx > 0:
-                in_expr.append(choice([
-                    "+", "-", "/", "%", "&", "&&", "|", "||", "^"
-                ]))
+                in_expr.append(choice(["+", "-", "&", "|"]))
                 out_expr.append(in_expr[-1])
             # Inject the bad define
             if idx == bad_idx:
                 in_expr.append(bad_def)
-                out_expr.append(bad_def)
+                out_expr.append(f"'{bad_def}'")
             elif choice((True, False)):
                 in_expr.append(choice(list(ctx_defs.keys())))
                 out_expr.append(str(ctx_defs[in_expr[-1]]))
@@ -399,17 +395,8 @@ def test_context_flatten_undef():
                 in_expr.append(str(randint(1, 10000)))
                 out_expr.append(in_expr[-1])
         # Flatten the expression
-        joiner     = choice(("", " "))
-        skip_undef = choice((True, False))
-        if skip_undef:
-            assert (
-                ctx.flatten(joiner.join(in_expr), skip_undef=skip_undef) ==
-                joiner.join(out_expr)
-            )
-        else:
-            with pytest.raises(PrologueError) as excinfo:
-                ctx.flatten(joiner.join(in_expr))
-            assert f"Referenced unknown variable '{bad_def}'"
+        joiner = choice(("", " "))
+        assert ctx.flatten(joiner.join(in_expr)) == " ".join(out_expr)
 
 def test_context_evaluate():
     """ Evaluate a random calculation with variable substitution """
