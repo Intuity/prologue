@@ -35,13 +35,18 @@ class Define(LineDirective):
         # Sanity checks
         if tag != "define":
             raise PrologueError(f"Define invoked with '{tag}'")
+        # Test number of arguments
+        # NOTE: At least one argument (the name) must be provided, but as an
+        #       expression can be used in a define, there is no upper limit on
+        #       arguments as counted by shlex
         num_args = self.count_args(arguments)
-        if num_args not in (1, 2):
-            raise PrologueError(f"Invalid form used for #define {arguments}")
-        # Everything before the first space is taken as the variable name
-        # NOTE: If no value is provided, it defaults to 'True'
+        if num_args < 1: raise PrologueError("Invalid form used for #define")
+        # Everything before the first space is taken as the variable name, and
+        # everything after the first space is the value
         self.name  = self.get_arg(arguments, 0)
-        self.value = self.get_arg(arguments, 1).strip() if num_args == 2 else True
+        self.value = arguments[len(self.name)+1:].strip()
+        # If no value is provided, it acts like a flag with value 'True'
+        if len(self.value) == 0: self.value = True
 
     def evaluate(self, context):
         """ Define a variable.
