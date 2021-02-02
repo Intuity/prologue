@@ -1,4 +1,4 @@
-# Copyright 2020, Peter Birch, mailto:peter@lightlogic.co.uk
+# Copyright 2021, Peter Birch, mailto:peter@lightlogic.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,25 @@
 # limitations under the License.
 
 from pathlib import Path
+import sys
 
 from prologue import Prologue
 
+# Check for right number of arguments, then extract them
+if len(sys.argv) != 3:
+    print("SYNTAX: python3 demo.py <INPUTDIR> <TOPFILE>")
+    sys.exit(1)
+
+in_dir = Path(sys.argv[1])
+top    = Path(sys.argv[2])
+
+# Setup preprocessor instance (use defaults)
 pro = Prologue()
 
-pro.add_file(Path.cwd() / "examples" / "data" / "basic" / "first.txt")
-pro.add_file(Path.cwd() / "examples" / "data" / "basic" / "second.txt")
+# Find all files within the input directory and add them to the registry
+for f_path in in_dir.glob("*.*"):
+    pro.add_file(f_path)
 
-for line in pro.evaluate("first.txt"):
-    print(f"Got line: {line}")
+# Kick off evaluate using the top-level file
+for line in pro.evaluate(top.parts[-1]):
+    print(line)

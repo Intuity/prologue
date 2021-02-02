@@ -1,0 +1,62 @@
+This is an example of all of the features of Prologue.
+
+For example, a constant can be defined:
+
+
+A test can be performed on whether the constant is defined:
+
+Of course flag is defined
+
+
+A constant can also take a value:
+
+
+Which can then be printed -> A=123, B=234, A+B=357
+
+Values can be tested - here implicit substitution is used:
+
+A (123) is less than B (234)
+
+A second file can be included - the contents of the second file appear every time
+the file is included:
+
+First time:
+This is the content of the second file - included 1 time(s)
+
+Second time:
+This is the content of the second file - included 2 time(s)
+
+How many times was second.txt included? 2 time(s)
+
+Alternatively a file can be imported - in which case it appears only the first
+time the file is every imported:
+
+First time:
+This is the content of the third file - included 1 time(s)
+
+Second time:
+
+How many times was third.txt imported? 1 time(s)
+
+Messages can help debug preprocessor behaviour:
+
+[PROLOGUE:INFO] Highest verbosity message - for information and debug
+[PROLOGUE:WARN] Medium verbosity message - for warnings
+
+A third class 'error' also exists - which will abort processing immediately.
+
+Loops can be used to generate more complex logic:
+
+This is apple number 0
+This is orange number 0
+This is cherry number 0
+This is peach number 0
+This is apple number 1
+This is orange number 1
+This is cherry number 1
+This is peach number 1
+This is apple number 2
+The fruit is 'apple' and the integer is greater than 1
+This is orange number 2
+This is cherry number 2
+This is peach number 2

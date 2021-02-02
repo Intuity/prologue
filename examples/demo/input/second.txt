@@ -1,0 +1,7 @@
+#ifndef SECOND_VAL
+    #define SECOND_VAL 1
+#else
+    #undef SECOND_VAL
+    #define SECOND_VAL 2
+#endif
+This is the content of the second file - included SECOND_VAL time(s)

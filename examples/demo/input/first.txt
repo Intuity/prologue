@@ -1,0 +1,73 @@
+This is an example of all of the features of Prologue.
+
+For example, a constant can be defined:
+
+#define FLAG
+
+A test can be performed on whether the constant is defined:
+
+#ifdef FLAG
+Of course flag is defined
+#endif
+
+#ifdef OTHER_FLAG
+But this should not appear
+#endif
+
+A constant can also take a value:
+
+#define VALUE_A    123
+#define VALUE_B    234
+#define SUM_NUMBER (VALUE_A + VALUE_B)
+
+Which can then be printed -> A=$(VALUE_A), B=$(VALUE_B), A+B=$(SUM_NUMBER)
+
+Values can be tested - here implicit substitution is used:
+
+#if VALUE_A > VALUE_B
+A (VALUE_A) is greater than B (VALUE_B)
+#elif VALUE_A == VALUE_B
+A (VALUE_A) is equal to B (VALUE_B)
+#else
+A (VALUE_A) is less than B (VALUE_B)
+#endif
+
+A second file can be included - the contents of the second file appear every time
+the file is included:
+
+First time:
+#include "second.txt"
+
+Second time:
+#include "second.txt"
+
+How many times was second.txt included? SECOND_VAL time(s)
+
+Alternatively a file can be imported - in which case it appears only the first
+time the file is every imported:
+
+First time:
+#import "third.txt"
+
+Second time:
+#import "third.txt"
+
+How many times was third.txt imported? THIRD_VAL time(s)
+
+Messages can help debug preprocessor behaviour:
+
+#info Highest verbosity message - for information and debug
+#warn Medium verbosity message - for warnings
+
+A third class 'error' also exists - which will abort processing immediately.
+
+Loops can be used to generate more complex logic:
+
+#for x in range(3):
+    #for y in ["apple", "orange", "cherry", "peach"]:
+This is $(y) number $(x)
+        #if y == "apple" and x > 1:
+The fruit is 'apple' and the integer is greater than 1
+        #endif
+    #endfor
+#endfor

@@ -1,0 +1,7 @@
+#ifndef THIRD_VAL
+    #define THIRD_VAL 1
+#else
+    #undef THIRD_VAL
+    #define THIRD_VAL 2
+#endif
+This is the content of the third file - included THIRD_VAL time(s)
