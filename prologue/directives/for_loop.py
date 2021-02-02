@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 import shlex
 
 import asteval
@@ -48,6 +49,9 @@ class ForLoop(BlockDirective):
         # Only close loop after the sanity checks
         super().close(tag, arguments)
 
+    RGX_RANGE = re.compile(r"^range[\s]*[(][\s]*(.*?)[\s]*[)]$")
+    RGX_ARRAY = re.compile(r"^[\[](.*?)[\]]$")
+
     def evaluate(self, context):
         """ Repeats the embedded block as many times as required.
 
@@ -60,10 +64,20 @@ class ForLoop(BlockDirective):
         parts = shlex.split(self.loop)
         if "in" not in parts:
             raise PrologueError(f"Incorrectly formed loop condition '{self.loop}'")
-        pre_loop  = " ".join(parts[:parts.index("in")])
-        post_loop = " ".join(parts[parts.index("in")+1:])
+        pre_loop  = (" ".join(parts[:parts.index("in")])).strip()
+        post_loop = (" ".join(parts[parts.index("in")+1:])).strip()
+        # Recognise a range
+        m_range  = self.RGX_RANGE.match(post_loop)
+        m_array  = self.RGX_ARRAY.match(post_loop)
+        iterable = None
+        if m_range:
+            iterable = range(context.evaluate(m_range.groups(0)[0]))
+        elif m_array:
+            iterable = [x.strip() for x in m_array.groups(0)[0].split(",")]
+        else:
+            iterable = asteval.Interpreter()(context.flatten(post_loop))
         # TODO: Need to support complex unpacking of loop conditions
-        for entry in asteval.Interpreter()(context.flatten(post_loop, skip_undef=True)):
+        for entry in iterable:
             # Expose the current value of the loop variable
             context.set_define(pre_loop, entry, warning=False)
             # Perform substitutions for the loop variable (and any others)
