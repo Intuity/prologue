@@ -133,7 +133,7 @@ def test_for_loop_evaluate():
         ctx.substitute.side_effect = echo
         result = [x for x in loop.evaluate(ctx)]
         assert result == (num_rpt * lines)
-        ctx.flatten.assert_has_calls([call(loop_rng, skip_undef=True)])
+        ctx.flatten.assert_has_calls([call(loop_rng)])
         ctx.set_define.assert_has_calls([
             call(loop_var, x, warning=False) for x in range(num_rpt)
         ])
