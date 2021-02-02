@@ -25,8 +25,8 @@ $> python3 setup.py test
  * Value substitution - recognise defined values and substitute for them. (coded)
  * Line spanning - recognise \ at the end of the line and concatenate consecutive lines together. (coded)
  * Line concatenation into loop/condition - lines within blocks need to be held until the correct condition evaluates them. (coded)
+ * Source file and line number tracking. (coded)
 
 ## Still to Do
- * Source file and line number tracking.
  * Add C-style delimiter support to provide separation e.g.: ```MY_##CONST##_VALUE```.
  * Macro functions.
