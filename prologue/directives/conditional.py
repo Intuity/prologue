@@ -108,11 +108,14 @@ class Conditional(BlockDirective):
         if self.else_section: sections.append(self.else_section)
         # Check which section is active
         for tag, cond, block in sections:
+            # Replace alternative syntaxes for Python operators
+            cond = cond.replace("&&", " and ").replace("||", " or ")
+            # Evaluate the conditional
             if (
-                (tag == "ifdef"  and     context.has_define(cond)         ) or
-                (tag == "ifndef" and not context.has_define(cond)         ) or
+                (tag == "ifdef"  and     context.has_define(cond)) or
+                (tag == "ifndef" and not context.has_define(cond)) or
                 (tag not in ("ifdef", "ifndef") and context.evaluate(cond)) or
-                (tag == "else"                                            )
+                (tag == "else")
             ):
                 yield from block.evaluate(context)
                 context.join()
