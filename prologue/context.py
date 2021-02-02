@@ -15,6 +15,14 @@
 import ast
 import re
 import shlex
+import sys
+
+# Support AST unparsing across multiple Python versions
+# NOTE: Before Python 3.9, unparse was not a native function
+if sys.version_info >= (3, 9):
+    from ast import unparse
+else:
+    from astunparse import unparse
 
 from .common import PrologueError, Line
 from .registry import RegistryFile
@@ -259,7 +267,7 @@ class Context(object):
             replaced[0] = 0
             try:
                 # Walk the AST substituting variables -> constants
-                result = ast.unparse(ReplaceVar().visit(ast.parse(result)))
+                result = unparse(ReplaceVar().visit(ast.parse(result)))
             except TypeError:
                 break
             if replaced[0] == 0: break
