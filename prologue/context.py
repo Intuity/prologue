@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import re
 import shlex
-
-import asteval
 
 from .common import PrologueError, Line
 from .registry import RegistryFile
@@ -40,7 +39,7 @@ class Context(object):
         self.implicit_sub   = implicit_sub
         self.explicit_style = explicit_style
         self.__defines      = {}
-        self.ast_eval       = asteval.Interpreter()
+        self.__removed      = []
         self.__stack        = []
         self.__trace        = []
         # Define regular expression for variable substitution
@@ -134,12 +133,16 @@ class Context(object):
                 f"character in length: '{key}'"
             )
         # Warn about collision
-        if warning and key in self.defines:
+        if warning and key in self.defines and not key in self.__removed:
             self.pro.warning_message(
                 f"Value already defined for key {key}", key=key, value=value,
             )
+        # If the value is a number, convert it
+        if isinstance(value, str) and value.strip().isdigit(): value = int(value)
         # Store the define
         self.__defines[key] = value
+        # Clear define name from 'removed' array, if present
+        if key in self.__removed: self.__removed.remove(key)
 
     def clear_define(self, key):
         """
@@ -151,7 +154,10 @@ class Context(object):
         """
         if key not in self.defines:
             raise PrologueError(f"No value has been defined for key '{key}'")
-        del self.__defines[key]
+        if key in self.__defines:
+            del self.__defines[key]
+        else:
+            self.__removed.append(key)
 
     def has_define(self, key):
         """ Check if a variable has been defined.
@@ -161,6 +167,8 @@ class Context(object):
 
         Returns: True if defined, False otherwise
         """
+        # If removed at this level, immediately return False
+        if key in self.__removed: return False
         # If defined at this level, immediately return True
         if key in self.__defines: return True
         # Check if defined by my parent instead?
@@ -176,7 +184,9 @@ class Context(object):
 
         Returns: Value of the define
         """
-        if key not in self.__defines:
+        if key in self.__removed:
+            raise PrologueError(f"No value has been defined for key '{key}'")
+        elif key not in self.__defines:
             if self.parent:
                 return self.parent.get_define(key)
             else:
@@ -204,6 +214,8 @@ class Context(object):
         """
         if not self.parent:
             raise PrologueError("No parent configured for context object")
+        for key in self.__removed:
+            self.parent.clear_define(key)
         for key, value in self.__defines.items():
             self.parent.set_define(key, value, warning=False)
         return self.parent
@@ -212,67 +224,62 @@ class Context(object):
     # Expression Evaluation
     # ==========================================================================
 
-    def flatten(self, expr, skip_undef=False):
+    def flatten(self, expr, history=None):
         """ Flatten an expression by substituting for known variables.
 
         Args:
-            expr      : The expression to flatten
-            skip_undef: Skip undefined variables (instead of erroring)
+            expr   : The expression to flatten
+            history: Tracks expressions to avoid deadlock
 
         Returns: String with each recognised variable substituted for its value
         """
-        # Pickup candidates for substitution
-        rgx_const = re.compile(r"\b([a-z][a-z0-9_]*)\b", re.IGNORECASE)
-        matches   = [x for x in rgx_const.finditer(expr)]
-        # If no candidates detected, break out early
-        if len(matches) == 0: return str(expr)
-        # Substitute for each variable
-        final = ""
-        for idx, match in enumerate(matches):
-            var_name = match.groups(0)[0]
-            if not self.has_define(var_name):
-                if skip_undef:
-                    final += (
-                        expr[matches[idx-1].span()[1]:match.span()[1]] if idx > 0 else
-                        expr[:match.span()[1]]
-                    )
-                    continue
+        # Create a history if one doesn't already exist
+        if not history: history = []
+        history.append(expr)
+        # Declare a AST node transformation to replace variables
+        ctx      = self
+        replaced = [0]
+        class ReplaceVar(ast.NodeTransformer):
+            def visit_Name(self, node):
+                if ctx.has_define(node.id):
+                    replaced[0] += 1
+                    value = ctx.get_define(node.id)
+                    if not isinstance(value, str):
+                        return ast.Constant(value=value)
+                    else:
+                        return ast.parse(value).body[0]
                 else:
-                    raise PrologueError(f"Referenced unknown variable '{var_name}'")
-            # Pickup the section that comes before the match
-            final += (
-                expr[matches[idx-1].span()[1]:match.span()[0]] if idx > 0 else
-                expr[:match.span()[0]]
-            )
-            # Make the substitution
-            value = self.get_define(var_name)
-            if isinstance(value, str):
-                final += self.flatten(value, skip_undef=skip_undef)
-            else:
-                final += str(value)
-        # Catch the trailing section
-        final += expr[matches[-1].span()[1]:]
-        # Return concatenated string
-        return final
+                    return ast.Constant(value=node.id)
+        # Iterate repeating variables (constants may reference other constants)
+        result = expr
+        while True:
+            # If result is no longer a string, break out
+            if not isinstance(result, str): break
+            # If it's not a constant, then try to substitute
+            replaced[0] = 0
+            try:
+                # Walk the AST substituting variables -> constants
+                result = ast.unparse(ReplaceVar().visit(ast.parse(result)))
+            except TypeError:
+                break
+            if replaced[0] == 0: break
+        return result
 
-    def evaluate(self, expr, skip_undef=False):
+    def evaluate(self, expr):
         """ Flatten an expression, then evaluate it.
 
         Args:
-            expr      : The expression to evaluate
-            skip_undef: Skip undefined variables (instead of erroring)
+            expr: The expression to evaluate
 
         Returns: Result of the expression
         """
         # First flatten out variable references
-        flat = self.flatten(expr.strip(), skip_undef=skip_undef)
+        flat = self.flatten(expr.strip())
         # Now evaluate (if we can)
-        result = self.ast_eval(flat)
-        if self.ast_eval.error:
-            self.ast_eval.error = []
+        try:
+            return eval(flat, { "__builtins__": None }, { })
+        except Exception:
             return flat
-        else:
-            return result
 
     def substitute(self, line, implicit=None):
         """ Perform in-line substitutions for recognised variables.
@@ -296,7 +303,7 @@ class Context(object):
                 len(self.explicit_style[0]):
                 len(match.groups()[0])-len(self.explicit_style[1])
             ]
-            sub_val = self.evaluate(m_expr, skip_undef=True)
+            sub_val = self.evaluate(m_expr)
             line    = (
                 line[:match.span()[0]] + str(sub_val) + line[match.span()[1]:]
             )
@@ -308,7 +315,7 @@ class Context(object):
                 if self.has_define(match.groups()[0]):
                     line = (
                         line[:match.span()[0]] +
-                        str(self.get_define(match.groups()[0])) +
+                        str(self.evaluate(match.groups()[0])) +
                         line[match.span()[1]:]
                     )
         # Return the finished string
