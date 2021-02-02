@@ -34,7 +34,7 @@ setup(
     data_files=["LICENSE"],
     include_package_data=True,
     entry_points={ },
-    install_requires=["asteval"],
+    install_requires=["asteval", "astunparse"],
     setup_requires=["pytest-runner"],
     tests_require=["pytest", "pytest-cov", "pytest-mock"],
     extras_require={},
