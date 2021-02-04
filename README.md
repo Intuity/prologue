@@ -11,6 +11,7 @@ Directives can be easily added and removed to customise the behaviour of the pre
  * `ifdef/ifndef/else/endif` - test whether constants are defined or undefined
  * `for/endfor` - repeat a block of text for a number of iterations, can also iterate through an array
  * `info/warning/error` - print messages to a log, or raise an exception, from a directive
+ * `include/import` - allows other files to be included or imported (one time include) into the stream
 
 ## Example
 
