@@ -13,6 +13,17 @@ Directives can be easily added and removed to customise the behaviour of the pre
  * `info/warning/error` - print messages to a log, or raise an exception, from a directive
  * `include/import` - allows other files to be included or imported (one time include) into the stream
 
+## Installation
+The easiest way to install Prologue is to use PyPI:
+```
+$> python3 -m pip install prologue
+```
+
+Alternatively, you can install the latest version directly from this repository:
+```
+$> python3 -m pip install git+git://github.com/Intuity/prologue
+```
+
 ## Example
 
 ### Input
