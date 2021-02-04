@@ -364,7 +364,10 @@ def test_context_flatten():
                 out_expr.append(in_expr[-1])
         # Flatten the expression
         joiner = choice(("", " "))
-        assert ctx.flatten(joiner.join(in_expr)) == " ".join(out_expr)
+        assert (
+            ctx.flatten(joiner.join(in_expr)).replace("(", "").replace(")", "").strip()
+            == " ".join(out_expr).strip()
+        )
 
 def test_context_flatten_undef():
     """ Attempt to flatten an expression with an undefined constant """
@@ -396,7 +399,10 @@ def test_context_flatten_undef():
                 out_expr.append(in_expr[-1])
         # Flatten the expression
         joiner = choice(("", " "))
-        assert ctx.flatten(joiner.join(in_expr)) == " ".join(out_expr)
+        assert (
+            ctx.flatten(joiner.join(in_expr)).replace("(", "").replace(")", "").strip()
+            == " ".join(out_expr).strip()
+        )
 
 def test_context_evaluate():
     """ Evaluate a random calculation with variable substitution """
