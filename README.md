@@ -1,5 +1,56 @@
 # Prologue
-Extensible block-based preprocessor written in Python
+
+![Tests](https://github.com/Intuity/prologue/workflows/Python%20package/badge.svg)
+
+Prologue is an extensible text preprocessor written in Python. It performs evaluation in a continuous stream, which allows it to run fast and keep a minimal memory footprint with few open file handles.
+
+Directives can be easily added and removed to customise the behaviour of the preprocessor. By default the following directives are supported:
+
+ * `define/undef` - allows constants to be declared and undeclared
+ * `if/elif/else/endif` - conditional inclusion of blocks of text/other preprocessor directives
+ * `ifdef/ifndef/else/endif` - test whether constants are defined or undefined
+ * `for/endfor` - repeat a block of text for a number of iterations, can also iterate through an array
+ * `info/warning/error` - print messages to a log, or raise an exception, from a directive
+
+## Example
+
+### Input
+```c
+#define MY_VAL 123
+#undef MY_VAL
+#define MY_VAL 256
+
+int main() {
+#if MY_VAL > 200
+    printf("Big value\n");
+#else
+    printf("Small value\n");
+#endif
+}
+```
+
+### Script
+```python
+from prologue import Prologue
+pro = Prologue()
+pro.add_file("path/to/main.c")
+for line in pro.evaluate("main.c"):
+    print(line)
+```
+
+### Output
+```c
+int main() {
+    printf("Big value\n");
+}
+```
+
+## Examples
+A number of examples are available in the `examples` folder:
+
+ * `demo` - is a demonstration of many features of Prologue, including loops, conditionals, include and import.
+ * `c_style` - demonstrates how Prologue can be setup to act like GCC's preprocessor.
+ * `verilog` - demonstrates how Prologue can be setup to act like a Verilog/SystemVerilog preprocessor.
 
 ## Running Tests
 Prologue comes with a suite of tests, which use `pytest` for regression:
@@ -10,23 +61,8 @@ $> cd prologue
 $> python3 setup.py test
 ```
 
-## Progress
- * File registry (coded)
- * Directives registry (coded)
- * File stream reading (coded)
- * Anchored and floating directive recognition (coded)
- * Context object to track stack, defines, etc (coded)
- * Tag open/close/transition tracking (coded)
- * Migrate directives to use class to track state (coded)
- * Support context forking/joining (coded)
- * Context's formal stack deprecated in favour of parent pointers (coded)
- * Basic evaluation working, not yet taking account of conditions (coded)
- * Add proper evaluation of conditions (coded)
- * Value substitution - recognise defined values and substitute for them. (coded)
- * Line spanning - recognise \ at the end of the line and concatenate consecutive lines together. (coded)
- * Line concatenation into loop/condition - lines within blocks need to be held until the correct condition evaluates them. (coded)
- * Source file and line number tracking. (coded)
+## Still To Do
+Some features that still need to be implemented are:
 
-## Still to Do
- * Add C-style delimiter support to provide separation e.g.: ```MY_##CONST##_VALUE```.
- * Macro functions.
+ * Support for C-style substitution delimiters to provide separation - for example `NUMBER_##A_CONST##_IS_THE_BEST`
+ * Support for macro functions with nested support - for example `#define SUM(A, B) A + B`
