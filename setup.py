@@ -20,9 +20,9 @@ with open(Path(__file__).parent / "README.md", "r") as fh:
 
 setup(
     name="prologue",
-    version="0.1",
+    version="1.0",
     license="Apache License, Version 2.0",
-    description="Extensible block-based preprocessor written in Python",
+    description="General purpose preprocessor written in Python",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Peter Birch",
@@ -34,6 +34,7 @@ setup(
     data_files=["LICENSE"],
     include_package_data=True,
     entry_points={ },
+    python_requires=">=3.6.10",
     install_requires=["asteval", "astunparse"],
     setup_requires=["pytest-runner"],
     tests_require=["pytest", "pytest-cov", "pytest-mock"],
