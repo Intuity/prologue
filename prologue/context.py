@@ -253,11 +253,11 @@ class Context(object):
                     replaced[0] += 1
                     value = ctx.get_define(node.id)
                     if not isinstance(value, str):
-                        return ast.Constant(value=value)
+                        return ast.Constant(value=value, kind=type(value))
                     else:
                         return ast.parse(value).body[0]
                 else:
-                    return ast.Constant(value=node.id)
+                    return ast.Constant(value=node.id, kind=type(node.id))
         # Iterate repeating variables (constants may reference other constants)
         result = expr
         while True:
