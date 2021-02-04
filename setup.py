@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from setuptools import setup
+from setuptools import setup, find_packages
 
 with open(Path(__file__).parent / "README.md", "r") as fh:
     long_description = fh.read()
@@ -30,7 +30,7 @@ setup(
     project_urls={
         "Source": "https://github.com/Intuity/prologue",
     },
-    packages=["prologue"],
+    packages=find_packages(exclude=["tests"]),
     data_files=["LICENSE"],
     include_package_data=True,
     entry_points={ },
