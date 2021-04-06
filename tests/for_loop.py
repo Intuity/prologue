@@ -135,5 +135,5 @@ def test_for_loop_evaluate():
         assert result == (num_rpt * lines)
         ctx.flatten.assert_has_calls([call(loop_rng)])
         ctx.set_define.assert_has_calls([
-            call(loop_var, x, warning=False) for x in range(num_rpt)
+            call(loop_var, x, check=False) for x in range(num_rpt)
         ])
