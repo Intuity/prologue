@@ -28,6 +28,37 @@ from prologue.registry import RegistryFile
 
 from .common import random_str
 
+def test_prologue_bad_arguments():
+    """ Try bad arguments when initialising Prologue """
+    # Use a bad comment
+    with pytest.raises(PrologueError) as excinfo:
+        Prologue(comment=choice((123, True, {})))
+    assert str(excinfo.value).startswith("Comment sequence must be a string")
+    # Use a bad delimiter
+    with pytest.raises(PrologueError) as excinfo:
+        Prologue(delimiter=choice((123, True, {})))
+    assert str(excinfo.value).startswith("Delimiter sequence must be a string")
+    # Use a bad shared delimiter setting
+    with pytest.raises(PrologueError) as excinfo:
+        Prologue(shared_delimiter=choice((123, "Hello", -4, 5.03)))
+    assert str(excinfo.value).startswith("Shared delimiter must be True or False")
+    # Use a bad implicit substitution setting
+    with pytest.raises(PrologueError) as excinfo:
+        Prologue(implicit_sub=choice((123, "Hello", -4, 5.03)))
+    assert str(excinfo.value).startswith("Implicit substitution must be True or False")
+    # Use a bad explicit style
+    with pytest.raises(PrologueError) as excinfo:
+        Prologue(explicit_style=choice((123, True, {}, "hello")))
+    assert str(excinfo.value).startswith("Explicit style must be a tuple")
+    # Use a bad allow redefinition setting
+    with pytest.raises(PrologueError) as excinfo:
+        Prologue(allow_redefine=choice((123, "Hello", -4, 5.03)))
+    assert str(excinfo.value).startswith("Allow redefinition must be True or False")
+    # Use a bad register prime setting
+    with pytest.raises(PrologueError) as excinfo:
+        Prologue(register_prime=choice((123, "Hello", -4, 5.03)))
+    assert str(excinfo.value).startswith("Register prime must be True or False")
+
 def test_prologue_bad_delimiter():
     """ Try to setup Prologue with a bad delimiter """
     # Use an empty delimiter
@@ -171,8 +202,16 @@ def test_prologue_get_directive():
     block_close = [random_str(3, 10, avoid=(line_opens+block_opens)) for _x in range(5)]
     wrap_line   = DirectiveWrap(LineDirx,  line_opens )
     wrap_block  = DirectiveWrap(BlockDirx, block_opens, closing=block_close)
+    for opening in line_opens: assert not pro.has_directive(opening)
     pro.register_directive(wrap_line)
+    for tag in line_opens: assert pro.has_directive(tag)
+    for tag in (block_opens + block_close): assert not pro.has_directive(tag)
     pro.register_directive(wrap_block)
+    for tag in (block_opens + block_close): assert pro.has_directive(tag)
+    # List all of the registered directives
+    reg_dirx = pro.list_directives()
+    assert wrap_line in reg_dirx
+    assert wrap_block in reg_dirx
     # Test that correct directive is returned each time
     all_tags = line_opens + block_opens + block_close
     for use_shared in (False, True):
@@ -194,6 +233,17 @@ def test_prologue_get_directive():
                     assert pro.get_directive(tag) == wrap_line
                 else:
                     assert pro.get_directive(tag) == wrap_block
+    # Test de-registering directives
+    pro.deregister_directive(choice(line_opens))
+    for tag in line_opens: assert not pro.has_directive(tag)
+    pro.deregister_directive(choice(block_opens + block_close))
+    for tag in (block_opens + block_close): assert not pro.has_directive(tag)
+    # Test deregistering directives again
+    for tags in (line_opens, block_opens+block_close):
+        use_tag = choice(tags)
+        with pytest.raises(PrologueError) as excinfo:
+            pro.deregister_directive(use_tag)
+        assert str(excinfo.value) == f"No directive registered for tag '{use_tag}'"
 
 def test_prologue_evaluate(mocker):
     """ Test evaluation of a Prologue instance """

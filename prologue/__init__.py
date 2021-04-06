@@ -32,6 +32,7 @@ class Prologue(object):
         implicit_sub    =True,
         explicit_style  =("$(", ")"),
         allow_redefine  =False,
+        register_prime  =True,
     ):
         """ Initialise the preprocessor.
 
@@ -44,9 +45,10 @@ class Prologue(object):
             implicit_sub    : Allow implicit substitutions (default: True)
             explit_style    : Style used for identifying explicit substitutions,
                               this should be a tuple of the prefix and suffix of
-                              the format (default: ('$(', ')')))
+                              the format (default: '$(', ')')
             allow_redefine  : Allow values to be defined multiple times (by
-                              default a PrologueError will be raised)
+                              default raises a PrologueError, default: False)
+            register_prime  : Register the prime directives (default: True)
         """
         # Sanity checks
         if not isinstance(comment, str):
@@ -59,6 +61,10 @@ class Prologue(object):
             raise PrologueError(f"Implicit substitution must be True or False: {implicit_sub}")
         if not isinstance(explicit_style, tuple):
             raise PrologueError(f"Explicit style must be a tuple: {explicit_style}")
+        if allow_redefine not in (True, False):
+            raise PrologueError(f"Allow redefinition must be True or False: {allow_redefine}")
+        if register_prime not in (True, False):
+            raise PrologueError(f"Register prime must be True or False: {register_prime}")
         # Store attributes
         self.comment          = comment
         self.delimiter        = delimiter
@@ -75,7 +81,7 @@ class Prologue(object):
         self.registry = Registry(self)
         # Create a store for directives
         self.directives = {}
-        register_prime_directives(self)
+        if register_prime: register_prime_directives(self)
         # Setup blank loop for converting from output line to input file and line
         self.lookup = None
 
@@ -209,6 +215,33 @@ class Prologue(object):
                 raise PrologueError(f"Directive already registered for tag '{tag}'")
         # Register the directive
         for tag in dirx.tags: self.directives[tag.lower()] = dirx
+
+    def deregister_directive(self, tag):
+        """ Remove a previously registered directive.
+
+        Args:
+            tag: The tag of the directive
+        """
+        if tag.lower() not in self.directives:
+            raise PrologueError(f"No directive registered for tag '{tag}'")
+        for dirx_tag in self.directives[tag.lower()].tags:
+            del self.directives[dirx_tag]
+
+    def list_directives(self):
+        """ Return all of the registered directives.
+
+        Returns: A list of directives """
+        return list(set(self.directives.values()))
+
+    def has_directive(self, tag):
+        """ Test if a directive has been registered for a given tag.
+
+        Args:
+            tag: The tag to check for
+
+        Returns: True if the tag is known, False if not
+        """
+        return (tag.lower() in self.directives)
 
     def get_directive(self, tag):
         """
