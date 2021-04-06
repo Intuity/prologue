@@ -21,7 +21,7 @@ this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 export PYTHONPATH=${this_dir}/../..:$PYTHONPATH
 
 # Run the preprocessor
-python3 verilog.py ${this_dir}/input ${this_dir}/input/example.v > ${this_dir}/test.v
+python3 verilog.py ${this_dir}/input ${this_dir}/input/example.v ${this_dir}/test.v
 
 # Compare with the expected output
 diff -q ${this_dir}/test.v ${this_dir}/expected/example.v >& /dev/null

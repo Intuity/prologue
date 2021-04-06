@@ -40,8 +40,6 @@ How many times was third.txt imported? 1 time(s)
 
 Messages can help debug preprocessor behaviour:
 
-[PROLOGUE:INFO] Highest verbosity message - for information and debug
-[PROLOGUE:WARN] Medium verbosity message - for warnings
 
 A third class 'error' also exists - which will abort processing immediately.
 

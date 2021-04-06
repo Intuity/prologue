@@ -21,7 +21,7 @@ this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 export PYTHONPATH=${this_dir}/../..:$PYTHONPATH
 
 # Run the preprocessor
-python3 demo.py ${this_dir}/input ${this_dir}/input/first.txt > ${this_dir}/test.txt
+python3 demo.py ${this_dir}/input ${this_dir}/input/first.txt ${this_dir}/test.txt
 
 # Compare with the expected output
 diff -q ${this_dir}/test.txt ${this_dir}/expected/first.txt >& /dev/null

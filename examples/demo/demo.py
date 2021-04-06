@@ -18,12 +18,13 @@ import sys
 from prologue import Prologue
 
 # Check for right number of arguments, then extract them
-if len(sys.argv) != 3:
-    print("SYNTAX: python3 demo.py <INPUTDIR> <TOPFILE>")
+if len(sys.argv) != 4:
+    print("SYNTAX: python3 demo.py <INPUTDIR> <TOPFILE> <OUTPUT>")
     sys.exit(1)
 
 in_dir = Path(sys.argv[1])
 top    = Path(sys.argv[2])
+output = Path(sys.argv[3])
 
 # Setup preprocessor instance (use defaults)
 pro = Prologue()
@@ -33,5 +34,6 @@ for f_path in in_dir.glob("*.*"):
     pro.add_file(f_path)
 
 # Kick off evaluate using the top-level file
-for line in pro.evaluate(top.parts[-1]):
-    print(line)
+with open(output, "w") as fh:
+    for line in pro.evaluate(top.parts[-1]):
+        fh.write(line + "\n")
