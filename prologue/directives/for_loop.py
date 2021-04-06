@@ -79,7 +79,7 @@ class ForLoop(BlockDirective):
         # TODO: Need to support complex unpacking of loop conditions
         for entry in iterable:
             # Expose the current value of the loop variable
-            context.set_define(pre_loop, entry, warning=False)
+            context.set_define(pre_loop, entry, check=False)
             # Perform substitutions for the loop variable (and any others)
             for line in super().evaluate(context):
                 yield context.substitute(line)
