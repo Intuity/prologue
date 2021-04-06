@@ -36,7 +36,6 @@ def test_undefine():
         ctx = MagicMock()
         ctx.has_define.side_effect = [True]
         undef.evaluate(ctx)
-        ctx.has_define.assert_has_calls([call(def_name)])
         ctx.clear_define.assert_has_calls([call(def_name)])
 
 def test_undefine_bad_variable():
@@ -51,13 +50,9 @@ def test_undefine_bad_variable():
         assert undef.name == def_name
         # Evaluate the define
         ctx = MagicMock()
-        ctx.has_define.side_effect = [False]
-        with pytest.raises(PrologueError) as excinfo:
-            undef.evaluate(ctx)
-        assert f"No variable defined for '{def_name}'" in str(excinfo.value)
-        ctx.has_define.assert_has_calls([call(def_name)])
-        # Check clear define was never called
-        assert not ctx.clear_define.called
+        undef.evaluate(ctx)
+        # Check clear define was called
+        assert ctx.clear_define.called
 
 def test_undefine_bad_tag():
     """ Check that a bad tag is flagged """

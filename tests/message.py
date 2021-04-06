@@ -45,11 +45,11 @@ def test_message_types():
             ctx = MagicMock()
             msg.evaluate(ctx)
             if m_class == "INFO":
-                ctx.pro.info_message.assert_has_calls([call(msg_str)])
+                ctx.pro.info_message.assert_has_calls([call(msg_str, source=(None, 0))])
             elif m_class == "WARN":
-                ctx.pro.warning_message.assert_has_calls([call(msg_str)])
+                ctx.pro.warning_message.assert_has_calls([call(msg_str, source=(None, 0))])
             elif m_class == "ERROR":
-                ctx.pro.error_message.assert_has_calls([call(msg_str)])
+                ctx.pro.error_message.assert_has_calls([call(msg_str, source=(None, 0))])
 
 def test_message_bad_tags():
     """ Check that a message cannot be invoked with a bad type """

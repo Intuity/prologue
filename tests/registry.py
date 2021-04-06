@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from prologue.common import PrologueError
@@ -19,7 +21,8 @@ from prologue.registry import Registry, RegistryFile
 
 def test_registry_add_bad_file(tmp_path):
     """ Add a bad file path into the registry """
-    reg = Registry()
+    pro = MagicMock()
+    reg = Registry(pro)
     # Try a file that doesn't exist
     with pytest.raises(PrologueError) as excinfo:
         bad_path = tmp_path / "bad_file.txt"
@@ -34,7 +37,8 @@ def test_registry_add_bad_file(tmp_path):
 
 def test_registry_add_bad_folder(tmp_path):
     """ Add a bad folder into the registry """
-    reg = Registry()
+    pro = MagicMock()
+    reg = Registry(pro)
     # Try a folder that doesn't exist
     with pytest.raises(PrologueError) as excinfo:
         bad_path = tmp_path / "bad_folder"
@@ -49,7 +53,8 @@ def test_registry_add_bad_folder(tmp_path):
 
 def test_registry_add_file(tmp_path):
     """ Add a file to the registry and check it can be resolved """
-    reg  = Registry()
+    pro  = MagicMock()
+    reg  = Registry(pro)
     path = tmp_path / "file_a.txt"
     with open(path, "w") as fh: fh.write("dummy content")
     reg.add_file(path)
@@ -59,7 +64,8 @@ def test_registry_add_file(tmp_path):
 
 def test_registry_add_folder(tmp_path):
     """ Add a folder to the registry and check files can be resolved """
-    reg    = Registry()
+    pro    = MagicMock()
+    reg    = Registry(pro)
     folder = tmp_path / "folder"
     path   = folder / "test_a.txt"
     folder.mkdir()
@@ -71,7 +77,8 @@ def test_registry_add_folder(tmp_path):
 
 def test_registry_flat(tmp_path):
     """ Test a 'flat' registry sticks all files in the root """
-    reg      = Registry(flat=True)
+    pro      = MagicMock()
+    reg      = Registry(pro, flat=True)
     folder_a = tmp_path / "folder_a"
     folder_b = folder_a / "folder_b"
     file_a   = folder_a / "file_a.txt"
@@ -89,7 +96,8 @@ def test_registry_flat(tmp_path):
 
 def test_registry_recurse(tmp_path):
     """ Test adding a folder recursively """
-    reg = Registry()
+    pro = MagicMock()
+    reg = Registry(pro)
     # Create nested folders
     folder_a = tmp_path / "folder_a"
     folder_b = folder_a / "folder_b"
@@ -116,7 +124,8 @@ def test_registry_recurse(tmp_path):
 
 def test_registry_selective(tmp_path):
     """ Recurse selectively through folder """
-    reg = Registry()
+    pro = MagicMock()
+    reg = Registry(pro)
     # Create nested folders
     folder_a = tmp_path / "folder_a"
     folder_b = folder_a / "folder_b"
@@ -140,11 +149,12 @@ def test_registry_selective(tmp_path):
     # Check that file B was not imported
     with pytest.raises(PrologueError) as excinfo:
         reg.resolve("file_b.yml")
-    assert f"No entry is known for path file_b.yml" in str(excinfo.value)
+    assert f"No registry entry found for 'file_b.yml'" in str(excinfo.value)
 
 def test_registry_bad_insert():
     """ Attempt to insert a bad object type into the Registry """
-    reg = Registry()
+    pro = MagicMock()
+    reg = Registry(pro)
     for item in ["a string", 123, True, { "hi": "bye" }, [1,2,3]]:
         with pytest.raises(PrologueError) as excinfo:
             reg.insert_entry(item)
@@ -152,7 +162,8 @@ def test_registry_bad_insert():
 
 def test_registry_clash(tmp_path):
     """ Try to register the same file or folder twice """
-    reg = Registry()
+    pro = MagicMock()
+    reg = Registry(pro)
     # Insert baseline file and folder
     file_a   = tmp_path / "file_a.txt"
     folder_a = tmp_path / "folder_a"
@@ -171,14 +182,16 @@ def test_registry_clash(tmp_path):
 
 def test_registry_resolve_unknown():
     """ Try to access unregistered file from the registry """
-    reg = Registry()
+    pro = MagicMock()
+    reg = Registry(pro)
     with pytest.raises(PrologueError) as excinfo:
         reg.resolve("bad_file.txt")
-    assert "No entry is known for path bad_file.txt" in str(excinfo.value)
+    assert "No registry entry found for 'bad_file.txt'" in str(excinfo.value)
 
 def test_registry_resolve_bad_file(tmp_path):
     """ Try to access a file matching a folder's name """
-    reg      = Registry()
+    pro      = MagicMock()
+    reg      = Registry(pro)
     the_path = tmp_path / "some_name"
     the_path.mkdir()
     reg.add_folder(the_path)
@@ -188,7 +201,8 @@ def test_registry_resolve_bad_file(tmp_path):
 
 def test_registry_resolve_bad_folder(tmp_path):
     """ Try to access a folder matching a file's name """
-    reg      = Registry()
+    pro      = MagicMock()
+    reg      = Registry(pro)
     the_path = tmp_path / "some_name"
     with open(the_path, "w") as fh: fh.write("dummy content")
     reg.add_file(the_path)

@@ -36,10 +36,8 @@ def test_define_boolean():
         assert define.value == True
         # Evaluate the define
         ctx = MagicMock()
-        ctx.has_define.side_effect = [False]
         define.evaluate(ctx)
-        ctx.has_define.assert_has_calls([call(def_name)])
-        ctx.set_define.assert_has_calls([call(def_name, True)])
+        ctx.set_define.assert_has_calls([call(def_name, True, check=True)])
 
 def test_define_ascii():
     """ Test defining a variable with an ASCII value """
@@ -56,10 +54,8 @@ def test_define_ascii():
         assert define.value == def_val
         # Evaluate the define
         ctx = MagicMock()
-        ctx.has_define.side_effect = [False]
         define.evaluate(ctx)
-        ctx.has_define.assert_has_calls([call(def_name)])
-        ctx.set_define.assert_has_calls([call(def_name, def_val)])
+        ctx.set_define.assert_has_calls([call(def_name, def_val, check=True)])
 
 def test_define_integer():
     """ Test defining a variable with an integer value """
@@ -77,10 +73,8 @@ def test_define_integer():
         assert define.value == str(def_val)
         # Evaluate the define
         ctx = MagicMock()
-        ctx.has_define.side_effect = [False]
         define.evaluate(ctx)
-        ctx.has_define.assert_has_calls([call(def_name)])
-        ctx.set_define.assert_has_calls([call(def_name, str(def_val))])
+        ctx.set_define.assert_has_calls([call(def_name, str(def_val), check=True)])
 
 def test_define_clash():
     """ Try defining a value that already exists """
@@ -97,17 +91,9 @@ def test_define_clash():
         assert define.name  == def_name
         assert define.value == str(def_val)
         # Evaluate the define
-        ctx       = MagicMock()
-        exist_val = random_str(5, 10)
-        ctx.has_define.side_effect = [True]
-        ctx.get_define.side_effect = [exist_val]
-        with pytest.raises(PrologueError) as excinfo:
-            define.evaluate(ctx)
-        assert f"Variable already defined for name '{def_name}' with value '{exist_val}'"
-        ctx.has_define.assert_has_calls([call(def_name)])
-        ctx.get_define.assert_has_calls([call(def_name)])
-        # Check set define was never called
-        assert not ctx.set_define.called
+        ctx = MagicMock()
+        define.evaluate(ctx)
+        ctx.set_define.assert_has_calls([call(def_name, str(def_val), check=True)])
 
 def test_define_bad_tag():
     """ Try defining a value with a bad tag """

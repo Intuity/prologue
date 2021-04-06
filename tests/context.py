@@ -201,40 +201,51 @@ def test_context_bad_define():
         assert f"No value has been defined for key '{use_key}'" == str(excinfo.value)
 
 def test_context_redefine():
-    """ Check that a warning message is produced when redefining a value """
-    pro   = MagicMock()
-    ctx   = Context(pro)
-    state = {}
+    """ Check that an exception or warning message is produced when redefining """
+    pro = MagicMock()
     for _x in range(100):
-        key        = random_str(5, 10)
-        val        = random_str(5, 10)
-        state[key] = val
-        ctx.set_define(key, val)
-    for _x in range(100):
+        # Create a new context, randomising whether to raise error or not
+        use_warn = choice((True, False))
+        ctx      = Context(pro, allow_redefine=use_warn)
+        state    = {}
+        for _x in range(100):
+            key        = random_str(5, 10)
+            val        = random_str(5, 10)
+            state[key] = val
+            ctx.set_define(key, val)
+        # Select a key to redefine
         use_key = choice(list(state.keys()))
         # Check the existing value
         assert ctx.has_define(use_key)
         assert ctx.get_define(use_key) == state[use_key]
         # Choose new state
-        new_val = random_str(5, 10)
-        en_warn = choice((True, False))
-        # Redefine a value
-        ctx.set_define(use_key, new_val, warning=en_warn)
-        # Check that value has been overwritten
-        assert ctx.has_define(use_key)
-        assert ctx.get_define(use_key) == new_val
-        state[use_key] = new_val
-        # Check if the warning was triggered
-        if en_warn:
-            assert pro.warning_message.called
-            pro.warning_message.assert_has_calls([call(
-                f"Value already defined for key {use_key}",
-                key=use_key, value=new_val,
-            )])
+        new_val  = random_str(5, 10)
+        en_check = choice((True, False))
+        if en_check and not use_warn:
+            with pytest.raises(PrologueError) as excinfo:
+                ctx.set_define(use_key, new_val, check=True)
+            assert (
+                f"Value already defined for key '{use_key}' with value "
+                f"{state[use_key]}"
+            ) == str(excinfo.value)
         else:
-            assert not pro.warning_message.called
-        # Reset the mock for the next pass
-        pro.reset_mock()
+            # Redefine a value
+            ctx.set_define(use_key, new_val, check=en_check)
+            # Check if the warning was triggered
+            if en_check:
+                assert pro.warning_message.called
+                pro.warning_message.assert_has_calls([call(
+                    f"Value already defined for key '{use_key}' with value "
+                    f"{state[use_key]}", key=use_key, value=new_val,
+                )])
+            else:
+                assert not pro.warning_message.called
+            # Check that value has been overwritten
+            assert ctx.has_define(use_key)
+            assert ctx.get_define(use_key) == new_val
+            state[use_key] = new_val
+            # Reset the mock for the next pass
+            pro.reset_mock()
 
 def gen_rand_defs(ctx, state, avoid, numeric=False):
     for _x in range(randint(10, 100)):

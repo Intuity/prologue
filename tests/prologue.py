@@ -249,6 +249,7 @@ def test_prologue_resolve():
         fake_file.contents = [
             Line(random_str(20, 30), fake_file, x+1) for x in range(randint(20, 50))
         ]
+        fake_file.snippet.return_value = "this is the snippet"
         fake_num    = randint(1, len(fake_file.contents))
         fake_before = min(num_before, fake_num-1)
         fake_after  = min(num_after,  len(fake_file.contents)-fake_num)
@@ -281,9 +282,11 @@ def test_prologue_resolve():
             out_line, before=num_before, after=num_after
         )
         # Check file, line number, and snippet match those in the fake lookup
-        assert r_file  == entry[0]
-        assert line_no == entry[1]
-        assert snippet == entry[2]
+        assert entry[0] == r_file
+        assert entry[1] == line_no
+        assert snippet  == "this is the snippet"
+        r_file.snippet.assert_has_calls([call(line_no, num_before, num_after)])
+        r_file.snippet.reset_mock()
 
 def test_prologue_evaluate_inner_bad_file(mocker):
     """ Check that an error is raised trying to evaluate a non-existent file """
@@ -406,8 +409,8 @@ def test_prologue_evaluate_inner_line(mocker, should_yield):
     # Create a line directive
     dirx_inst = []
     class LineDirx(LineDirective):
-        def __init__(self, parent):
-            super().__init__(parent, yields=should_yield)
+        def __init__(self, parent, src_file=None, src_line=0):
+            super().__init__(parent, yields=should_yield, src_file=src_file, src_line=src_line)
             dirx_inst.append(self)
     mocker.patch.object(LineDirx, "invoke",   autospec=True)
     mocker.patch.object(LineDirx, "evaluate", autospec=True)
@@ -469,8 +472,8 @@ def test_prologue_evaluate_inner_block(mocker, should_yield):
     m_con = mocker.patch.object(RegistryFile, "contents", new_callable=PropertyMock)
     # Create a line directive
     class BlockDirx(BlockDirective):
-        def __init__(self, parent):
-            super().__init__(parent, yields=should_yield)
+        def __init__(self, parent, src_file=None, src_line=0):
+            super().__init__(parent, yields=should_yield, src_file=src_file, src_line=src_line)
     mocker.patch.object(BlockDirx, "open",       autospec=True)
     mocker.patch.object(BlockDirx, "transition", autospec=True)
     mocker.patch.object(BlockDirx, "close",      autospec=True)
@@ -596,11 +599,11 @@ def test_prologue_evaluate_inner_block_confused(mocker):
     delim = choice(("#", "@", "$", "%", "!"))
     # Create a pair of block directives
     class BlockDirA(BlockDirective):
-        def __init__(self, parent):
-            super().__init__(parent, yields=True)
+        def __init__(self, parent, src_file=None, src_line=0):
+            super().__init__(parent, yields=True, src_file=src_file, src_line=src_line)
     class BlockDirB(BlockDirective):
-        def __init__(self, parent):
-            super().__init__(parent, yields=True)
+        def __init__(self, parent, src_file=None, src_line=0):
+            super().__init__(parent, yields=True, src_file=src_file, src_line=src_line)
     all_tags   = []
     opening_a  = [random_str(5, 10, avoid=all_tags) for _x in range(randint(1, 5))]
     all_tags  += opening_a
@@ -658,8 +661,8 @@ def test_prologue_evaluate_inner_block_trailing(mocker):
     # Create a pair of block directives
     dirx_inst = []
     class BlockDirx(BlockDirective):
-        def __init__(self, parent):
-            super().__init__(parent, yields=True)
+        def __init__(self, parent, src_file, src_line):
+            super().__init__(parent, yields=True, src_file=src_file, src_line=src_line)
             dirx_inst.append(self)
     opening = [random_str(5, 10) for _x in range(randint(1, 5))]
     closing = [random_str(5, 10, avoid=opening) for _x in range(randint(1, 5))]
@@ -682,6 +685,7 @@ def test_prologue_evaluate_inner_block_trailing(mocker):
         # Setup fake file contents
         contents  = []
         contents += [random_str(50, 100, spaces=True) for _x in range(randint(5, 10))]
+        open_idx  = len(contents)
         contents += [f"{delim}{choice(opening)} {random_str(50, 100, spaces=True)}"]
         contents += [random_str(50, 100, spaces=True) for _x in range(randint(5, 10))]
         for _y in range(randint(0, 3)):
@@ -691,10 +695,9 @@ def test_prologue_evaluate_inner_block_trailing(mocker):
         # Expected an unclosed directive
         with pytest.raises(PrologueError) as excinfo:
             [x for x in pro.evaluate_inner(r_file.filename, ctx)]
-        assert (
-            f"Some directives remain unclosed at end of {dirx_inst[-1]}: "
-            f"{opening[0]}"
-        ) == str(excinfo.value)
+        assert str(excinfo.value).startswith(
+            f"Unmatched BlockDirx block directive in {r_file.path}:{open_idx+1}:"
+        )
 
 def test_prologue_evaluate_inner_stack_corrupt(mocker):
     """ Check that unclosed blocks at the end of the file are detected """
@@ -703,8 +706,8 @@ def test_prologue_evaluate_inner_stack_corrupt(mocker):
     # Create a pair of block directives
     dirx_inst = []
     class BlockDirx(BlockDirective):
-        def __init__(self, parent):
-            super().__init__(parent, yields=True)
+        def __init__(self, parent, src_file=None, src_line=0):
+            super().__init__(parent, yields=True, src_file=src_file, src_line=src_line)
             dirx_inst.append(self)
     opening = [random_str(5, 10) for _x in range(randint(1, 5))]
     closing = [random_str(5, 10, avoid=opening) for _x in range(randint(1, 5))]
@@ -737,4 +740,4 @@ def test_prologue_evaluate_inner_stack_corrupt(mocker):
         # Expected an unclosed directive
         with pytest.raises(PrologueError) as excinfo:
             [x for x in pro.evaluate_inner(r_file.filename, ctx)]
-        assert "File stack has been corrupted" == str(excinfo.value)
+        assert "File stack has been corrupted" in str(excinfo.value)
