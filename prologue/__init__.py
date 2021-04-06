@@ -267,11 +267,12 @@ class Prologue(object):
     # Evaluation
     # ==========================================================================
 
-    def evaluate(self, filename):
+    def evaluate(self, filename, defines=None):
         """ Iterable evaluation function which returns fully preprocessed stream
 
         Args:
             filename: The file to evaluate
+            defines : Predefined values to initialise the context
 
         Yields: Stream of fully preprocessed lines
         """
@@ -281,6 +282,7 @@ class Prologue(object):
             implicit_sub  =self.implicit_sub,
             explicit_style=self.explicit_style,
             allow_redefine=self.allow_redefine,
+            initial_state =defines,
         )
         # Use inner evaluation routine to get each line one at a time
         self.lookup = []

@@ -34,6 +34,22 @@ def test_context_construction():
     parent.defines.side_effect = [{}]
     assert len(ctx.defines.keys()) == 0
 
+def test_context_initial_state():
+    """ Test creation of a context with initial state """
+    # Generate a random initial state
+    initial = {}
+    for _ in range(randint(10, 30)):
+        initial[random_str(5, 10)] = choice((
+            random_str(5, 10), True, False, randint(-100, 100),
+            randint(-100, 100) / randint(1, 100)
+        ))
+    # Create the context
+    pro = MagicMock()
+    ctx = Context(pro, initial_state=initial)
+    # Check the initial state
+    for key in initial: assert ctx.has_define(key)
+    for key, value in initial.items(): assert ctx.get_define(key) == value
+
 def test_context_inherit_defines():
     """ Test that values defined in the root are passed down correctly """
     root    = Context(None)

@@ -37,6 +37,7 @@ class Context(object):
         implicit_sub  =True,
         explicit_style=("$(", ")"),
         allow_redefine=False,
+        initial_state =None,
     ):
         """ Initialise the context
 
@@ -46,8 +47,10 @@ class Context(object):
             implicit_sub  : Whether to allow implicit substitutions (default: True)
             explicit_style: Tuple of strings that define the explicit style
                             (default: ('$(', ')'))
-            allow_redefine: Allow values to be defined multiple times (by
-                            default a PrologueError will be raised)
+            allow_redefine: Allow values to be defined multiple times (default:
+                            False, so a PrologueError will be raised on redefine)
+            initial_state : Dictionary of values to provide an initial state
+                            (default: None)
         """
         self.pro            = pro
         self.parent         = parent
@@ -58,6 +61,23 @@ class Context(object):
         self.__removed      = []
         self.__stack        = []
         self.__trace        = []
+        # Populate initial state
+        if isinstance(initial_state, dict):
+            for key, value in initial_state.items():
+                if not isinstance(key, str):
+                    raise PrologueError(
+                        f"Keys must be strings in initial state, not: {key}"
+                    )
+                elif type(value) not in (str, int, float, bool):
+                    raise PrologueError(
+                        f"Values must be string, integer, float, or Boolean in "
+                        f"the initial state, not: {value}"
+                    )
+                self.__defines[key] = value
+        elif initial_state != None:
+            raise PrologueError(
+                f"Initial state must be a dictionary, not: {initial_state}"
+            )
         # Define regular expression for variable substitution
         rgx_exp_str = r"(" + "".join(f"[{x}]" for x in self.explicit_style[0])
         if explicit_style[1]:

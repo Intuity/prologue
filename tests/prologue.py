@@ -272,7 +272,13 @@ def test_prologue_evaluate(mocker):
         for line in lines: yield line
     pro.evaluate_inner.side_effect = gen_lines
     # Call evaluate
-    result = [x for x in pro.evaluate(l_file)]
+    initial = { random_str(5, 10): random_str(5, 10) for _ in range(5) }
+    result  = [x for x in pro.evaluate(l_file, defines=initial)]
+    # Check that the initial state reached the context
+    mock_ctx_cls.assert_has_calls([call(
+        pro, implicit_sub=True, explicit_style=("$(", ")"),
+        allow_redefine=False, initial_state=initial,
+    )])
     # Check that only 'str' objects were yielded
     assert len([x for x in result if not isinstance(x, str)]) == 0
     # Check that every line contains substitutions
