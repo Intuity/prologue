@@ -26,8 +26,8 @@ ERROR   = ["error", "danger", "fatal"]
 class Message(LineDirective):
     """ Prints message at different verbosity levels """
 
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent, src_file=None, src_line=0):
+        super().__init__(parent, src_file=src_file, src_line=src_line)
         self.msg_class = None
         self.msg_text  = None
 
@@ -56,4 +56,4 @@ class Message(LineDirective):
             "INFO"   : context.pro.info_message,
             "WARNING": context.pro.warning_message,
             "ERROR"  : context.pro.error_message,
-        }[self.msg_class](self.msg_text)
+        }[self.msg_class](self.msg_text, source=self.source)

@@ -49,6 +49,29 @@ class RegistryFile(object):
             for idx, line in enumerate(fh.readlines()):
                 yield Line(line.rstrip(), self, idx + 1)
 
+    def snippet(self, line, before=2, after=2):
+        """ Generate a snippet of the original file.
+
+        Args:
+            line  : Line number to extract
+            before: Number of lines before the line to include
+            after : Number of lines after the line to include
+
+        Returns: List of lines forming snippet
+        """
+        snippet = []
+        for s_line in self.contents:
+            # If this is before the snip point, ignore it
+            if s_line.number < (line - before): continue
+            # If this is after the snip point, break out
+            if s_line.number > (line + after): break
+            # Otherwise, build up the snippet
+            snippet.append("%4i %s %s" % (
+                s_line.number, (">>" if (s_line.number == line) else "  "),
+                str(s_line)
+            ))
+        return snippet
+
 class RegistryFolder(object):
     """ Holds a folder in the registry """
 
@@ -96,12 +119,14 @@ class RegistryFolder(object):
 class Registry(object):
     """ Keeps track of all files available to IMPORT and INCLUDE """
 
-    def __init__(self, flat=False):
+    def __init__(self, pro, flat=False):
         """ Initialise the registry
 
         Args:
+            pro : Pointer to the Prologue instance
             flat: Flatten all hierarchy of folders added to the registry.
         """
+        self.__pro     = pro
         self.__flat    = flat
         self.__entries = {}
 
@@ -125,6 +150,9 @@ class Registry(object):
                 f"Entry already exists in registry with name {entry_name}"
             )
         # Insert the entry
+        self.__pro.debug_message(
+            f"Adding entry '{entry_name}' to registry: {entry.path}"
+        )
         self.__entries[entry_name] = entry
 
     def add_file(self, path):
@@ -149,6 +177,10 @@ class Registry(object):
             search_for: Provide a file extension to search for
             recursive : Whether to search recursively in this folder
         """
+        self.__pro.debug_message(
+            "Adding folder " + ("" if recursive else "non-") + "recursively to "
+            f"registry, searching for {search_for}: {path}"
+        )
         # Wrap the folder
         r_folder = RegistryFolder(path)
         # If neither argument provided, register directly
@@ -179,12 +211,12 @@ class Registry(object):
             path: The path to resolve
         """
         # Ensure this is a Path instance
-        path = Path(path) if not isinstance(path, Path) else path
+        path = Path(str(path).strip())
         # Check if the path is absolute
         if path.is_absolute(): return RegistryFile(path)
         # Otherwise, attempt to resolve
         if path.parts[0] not in self.__entries:
-            raise PrologueError(f"No entry is known for path {path}")
+            raise PrologueError(f"No registry entry found for '{path}'")
         # Lookup the entry
         entry = self.__entries[path.parts[0]]
         # Sanity check

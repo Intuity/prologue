@@ -25,8 +25,8 @@ from ..common import PrologueError
 class Conditional(BlockDirective):
     """ Conditional directive supporting IF/ELIF/ELSE/ENDIF sections """
 
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent, src_file=None, src_line=0):
+        super().__init__(parent, src_file=src_file, src_line=src_line)
         self.if_section    = None
         self.elif_sections = []
         self.else_section  = None

@@ -26,8 +26,8 @@ from ..common import PrologueError
 class ForLoop(BlockDirective):
     """ Loop directive using FOR/ENDFOR """
 
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent, src_file=None, src_line=0):
+        super().__init__(parent, src_file=src_file, src_line=src_line)
         self.loop = None
 
     def open(self, tag, arguments):

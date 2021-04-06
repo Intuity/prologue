@@ -31,6 +31,7 @@ class Prologue(object):
         shared_delimiter=False,
         implicit_sub    =True,
         explicit_style  =("$(", ")"),
+        allow_redefine  =False,
     ):
         """ Initialise the preprocessor.
 
@@ -44,6 +45,8 @@ class Prologue(object):
             explit_style    : Style used for identifying explicit substitutions,
                               this should be a tuple of the prefix and suffix of
                               the format (default: ('$(', ')')))
+            allow_redefine  : Allow values to be defined multiple times (by
+                              default a PrologueError will be raised)
         """
         # Sanity checks
         if not isinstance(comment, str):
@@ -62,13 +65,14 @@ class Prologue(object):
         self.shared_delimiter = shared_delimiter
         self.implicit_sub     = implicit_sub
         self.explicit_style   = explicit_style
+        self.allow_redefine   = allow_redefine
         # Create empty message handling callbacks
         self.callback_debug   = None
         self.callback_info    = None
         self.callback_warning = None
         self.callback_error   = None
         # Create a registry instance
-        self.registry = Registry()
+        self.registry = Registry(self)
         # Create a store for directives
         self.directives = {}
         register_prime_directives(self)
@@ -243,6 +247,7 @@ class Prologue(object):
             self,
             implicit_sub  =self.implicit_sub,
             explicit_style=self.explicit_style,
+            allow_redefine=self.allow_redefine,
         )
         # Use inner evaluation routine to get each line one at a time
         self.lookup = []
@@ -276,10 +281,10 @@ class Prologue(object):
             )
         # Create regular expressions for recognising directives
         re_anchored = re.compile(
-            r"^[\s]*[" + self.delimiter + r"][\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
+            r"^[\s]*[" + self.delimiter + r"]([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
         )
         re_floating = re.compile(
-            r"^(.*?)[" + self.delimiter + r"][\s]*([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
+            r"^([^" + self.comment + "]*)[" + self.delimiter + r"]([a-z0-9_]+)(.*?)$", flags=re.IGNORECASE,
         )
         # Push the current file into the stack
         context.stack_push(r_file)
@@ -287,91 +292,104 @@ class Prologue(object):
         active      = None
         accumulated = None
         for idx, line in enumerate(r_file.contents):
-            # If comment and delimiter are different, remove everything after comment
-            if self.comment != self.delimiter:
-                line = line.split(self.comment)[0]
-            # Handle line continuation
-            if line and line[-1] == "\\":
-                accumulated = (accumulated + line[:-1]) if accumulated else line[:-1]
-                continue
-            elif accumulated:
-                line        = accumulated + line
-                accumulated = None
-            # Test if the line matches an anchored directive
-            anchored = re_anchored.match(line)
-            if anchored:
-                tag, arguments = anchored.groups()
-                arguments      = arguments.strip()
-                tag            = tag.lower()
-                d_wrap         = self.get_directive(tag)
-                if arguments.endswith(":"): arguments = arguments[:-1]
-                if d_wrap and d_wrap.is_line:
-                    l_dir = d_wrap.directive(active)
-                    l_dir.invoke(tag, arguments.strip())
-                    if   active      : active.append(l_dir)
-                    elif l_dir.yields: yield from l_dir.evaluate(context)
-                    else             : l_dir.evaluate(context)
-                    # Move on to the next line
+            # Catch any exceptions so that they can be marked with file and line
+            try:
+                # If comment and delimiter are different, remove everything after comment
+                if self.comment != self.delimiter:
+                    line = line.split(self.comment)[0]
+                # Handle line continuation
+                if line and line[-1] == "\\":
+                    accumulated = (accumulated + line[:-1]) if accumulated else line[:-1]
                     continue
-                elif d_wrap and d_wrap.is_block:
-                    # Call the directive
-                    if d_wrap.is_opening(tag):
-                        block   = d_wrap.directive(active)
-                        block.open(tag, arguments)
-                        # If a block is already open, append to it
-                        if active: active.append(block)
-                        # Track currently active block
-                        active = block
-                    elif d_wrap.is_transition(tag):
-                        if d_wrap.directive != type(active):
-                            raise PrologueError(f"Transition tag '{tag}' was not expected")
-                        active.transition(tag, arguments)
-                    elif d_wrap.is_closing(tag):
-                        if d_wrap.directive != type(active):
-                            raise PrologueError(f"Closing tag '{tag}' was not expected")
-                        active.close(tag, arguments)
-                        # If there is no parent, this is the root
-                        if not active.parent:
-                            if active.yields:
-                                yield from active.evaluate(context.fork())
-                            else:
-                                active.evaluate(context.fork())
-                        # Pop the stack
-                        active = active.parent
-                    # Move on to the next line
-                    continue
-            # Test if the line matches a floating directive
-            floating = re_floating.match(line)
-            if floating != None:
-                prior, tag, arguments = floating.groups()
-                tag                   = tag.lower()
-                arguments             = arguments.strip()
-                d_wrap                = self.get_directive(tag)
-                if d_wrap and d_wrap.is_block:
-                    raise PrologueError(
-                        f"The directive '{tag}' can only be used with an "
-                        f"anchored delimiter as it is a block directive"
-                    )
-                elif d_wrap:
+                elif accumulated:
+                    line        = accumulated + line
+                    accumulated = None
+                # Test if the line matches an anchored directive
+                anchored = re_anchored.match(line)
+                if anchored:
+                    tag, arguments = anchored.groups()
+                    arguments      = arguments.strip()
+                    tag            = tag.lower()
+                    d_wrap         = self.get_directive(tag)
                     if arguments.endswith(":"): arguments = arguments[:-1]
-                    # Yield the text before the directive
-                    yield line.encase(prior.rstrip())
-                    # Yield the contents returned from the directive
-                    l_dir = d_wrap.directive(active)
-                    l_dir.invoke(tag, arguments.strip())
-                    if   active      : active.append(l_dir)
-                    elif l_dir.yields: yield from l_dir.evaluate(context)
-                    else             : l_dir.evaluate(context)
-                    continue
-            # Otherwise, this is just a line!
-            if active: active.append(line)
-            else     : yield line
+                    if d_wrap and d_wrap.is_line:
+                        l_dir = d_wrap.directive(active, src_file=r_file, src_line=(idx + 1))
+                        l_dir.invoke(tag, arguments.strip())
+                        if   active      : active.append(l_dir)
+                        elif l_dir.yields: yield from l_dir.evaluate(context)
+                        else             : l_dir.evaluate(context)
+                        # Move on to the next line
+                        continue
+                    elif d_wrap and d_wrap.is_block:
+                        # Call the directive
+                        if d_wrap.is_opening(tag):
+                            block   = d_wrap.directive(active, src_file=r_file, src_line=(idx + 1))
+                            block.open(tag, arguments)
+                            # If a block is already open, append to it
+                            if active: active.append(block)
+                            # Track currently active block
+                            active = block
+                        elif d_wrap.is_transition(tag):
+                            if d_wrap.directive != type(active):
+                                raise PrologueError(f"Transition tag '{tag}' was not expected")
+                            active.transition(tag, arguments)
+                        elif d_wrap.is_closing(tag):
+                            if d_wrap.directive != type(active):
+                                raise PrologueError(f"Closing tag '{tag}' was not expected")
+                            active.close(tag, arguments)
+                            # If there is no parent, this is the root
+                            if not active.parent:
+                                if active.yields:
+                                    yield from active.evaluate(context.fork())
+                                else:
+                                    active.evaluate(context.fork())
+                            # Pop the stack
+                            active = active.parent
+                        # Move on to the next line
+                        continue
+                # Test if the line matches a floating directive
+                floating = re_floating.match(line)
+                if floating != None:
+                    prior, tag, arguments = floating.groups()
+                    tag                   = tag.lower()
+                    arguments             = arguments.strip()
+                    d_wrap                = self.get_directive(tag)
+                    if d_wrap and d_wrap.is_block:
+                        raise PrologueError(
+                            f"The directive '{tag}' can only be used with an "
+                            f"anchored delimiter as it is a block directive"
+                        )
+                    elif d_wrap:
+                        if arguments.endswith(":"): arguments = arguments[:-1]
+                        # Yield the text before the directive
+                        yield line.encase(prior.rstrip())
+                        # Yield the contents returned from the directive
+                        l_dir = d_wrap.directive(active, src_file=r_file, src_line=(idx + 1))
+                        l_dir.invoke(tag, arguments.strip())
+                        if   active      : active.append(l_dir)
+                        elif l_dir.yields: yield from l_dir.evaluate(context)
+                        else             : l_dir.evaluate(context)
+                        continue
+                # Otherwise, this is just a line!
+                if active: active.append(line)
+                else     : yield line
+            # Catch all exceptions and add file and line
+            except PrologueError as e:
+                raise e
+            except Exception as e:
+                snippet = "\n".join(r_file.snippet(idx+1))
+                raise PrologueError(
+                    f"Caught {type(e).__name__} when evaluating {r_file.path}:"
+                    f"{idx+1}; {e}" + "\n" + snippet
+                ) from e
         # Check for trailing directives
         if active:
             dir_stack = [x for x in active.stack if isinstance(x, Directive)]
+            src_file, src_line = active.source
+            snippet = "\n".join(src_file.snippet(src_line))
             raise PrologueError(
-                f"Some directives remain unclosed at end of {active}: "
-                + ", ".join((type(x).OPENING[0] for x in dir_stack))
+                f"Unmatched {type(active).__name__} block directive in "
+                f"{src_file.path}:{src_line}:" + "\n" + snippet
             )
         # Pop the file being parsed from the stack
         if context.stack_pop() != r_file:
@@ -406,17 +424,5 @@ class Prologue(object):
             )
         # Use lookup to get the file and line number
         r_file, line_no = self.lookup[line-1]
-        # Grab a snippet from the input file
-        snippet = []
-        for s_line in r_file.contents:
-            # If this is before the snip point, ignore it
-            if s_line.number < (line_no - before): continue
-            # If this is after the snip point, break out
-            if s_line.number > (line_no + after): break
-            # Otherwise, build up the snippet
-            snippet.append("%4i %s %s" % (
-                s_line.number, (">>" if (s_line.number == line_no) else "  "),
-                str(s_line)
-            ))
         # Return the input file and line number
-        return r_file, line_no, snippet
+        return r_file, line_no, r_file.snippet(line_no, before, after)

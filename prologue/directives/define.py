@@ -20,8 +20,8 @@ from ..common import PrologueError
 class Define(LineDirective):
     """ Defines a variable in the current context """
 
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent, src_file=None, src_line=0):
+        super().__init__(parent, src_file=src_file, src_line=src_line)
         self.name  = None
         self.value = None
 
@@ -54,21 +54,14 @@ class Define(LineDirective):
         Args:
             context: The context object at the point of evaluation
         """
-        # Sanity check for collision
-        if context.has_define(self.name):
-            raise PrologueError(
-                f"Variable already defined for '{self.name}' with value " +
-                str(context.get_define(self.name))
-            )
-        # Define the variable
-        context.set_define(self.name, self.value)
+        context.set_define(self.name, self.value, check=True)
 
 @directive("undef")
 class Undefine(LineDirective):
     """ Undefined a variable from the current context """
 
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent, src_file=None, src_line=0):
+        super().__init__(parent, src_file=src_file, src_line=src_line)
         self.name = None
 
     def invoke(self, tag, arguments):
@@ -92,8 +85,4 @@ class Undefine(LineDirective):
         Args:
             context: The context object at the point of evaluation
         """
-        # Sanity check for collision
-        if not context.has_define(self.name):
-            raise PrologueError(f"No variable defined for '{self.name}'")
-        # Undefine the variable
         context.clear_define(self.name)

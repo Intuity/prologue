@@ -20,22 +20,28 @@ from ..block import Block
 class Directive(Block):
     UUID = 0
 
-    def __init__(self, parent, yields=True):
+    def __init__(self, parent, yields=True, src_file=None, src_line=0):
         """ Initialise the directive.
 
         Args:
-            parent: The parent block
-            yields: Whether the directive yields content
+            parent  : The parent block
+            yields  : Whether the directive yields content
+            src_file: Source file
+            src_line: Source line number
         """
         super().__init__(parent)
         self.__uuid   = BlockDirective.issue_uuid()
         self.__yields = yields
+        self.__source = (src_file, src_line)
 
     @property
     def yields(self): return self.__yields
 
     @property
     def uuid(self): return self.__uuid
+
+    @property
+    def source(self): return self.__source
 
     @classmethod
     def issue_uuid(self):
@@ -81,14 +87,16 @@ class BlockDirective(Directive):
     closing tag, but can also be split into multiple sections using transitions.
     """
 
-    def __init__(self, parent, yields=True):
+    def __init__(self, parent, yields=True, src_file=None, src_line=0):
         """ Initialise the block directive.
 
         Args:
-            parent: The parent block
-            yields: Whether the directive yields content (defaults to True for block)
+            parent  : The parent block
+            yields  : Whether the directive yields content (defaults to True for block)
+            src_file: Source file
+            src_line: Source line number
         """
-        super().__init__(parent, yields)
+        super().__init__(parent, yields, src_file, src_line)
         self.__opened = False
         self.__closed = False
 
@@ -152,14 +160,16 @@ class LineDirective(Directive):
     it is embedded within a block directive.
     """
 
-    def __init__(self, parent, yields=False):
+    def __init__(self, parent, yields=False, src_file=None, src_line=0):
         """ Initialise the block directive.
 
         Args:
-            parent: The parent block
-            yields: Whether the directive yields content (defaults to False for line)
+            parent  : The parent block
+            yields  : Whether the directive yields content (defaults to False for line)
+            src_file: Source file
+            src_line: Source line number
         """
-        super().__init__(parent, yields)
+        super().__init__(parent, yields, src_file, src_line)
 
     def invoke(self, tag, arguments):
         """ Called once to setup the directive.

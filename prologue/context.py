@@ -31,7 +31,12 @@ class Context(object):
     """ Keeps track of the parser's context """
 
     def __init__(
-        self, pro, parent=None, implicit_sub=True, explicit_style=("$(", ")"),
+        self,
+        pro,
+        parent        =None,
+        implicit_sub  =True,
+        explicit_style=("$(", ")"),
+        allow_redefine=False,
     ):
         """ Initialise the context
 
@@ -41,11 +46,14 @@ class Context(object):
             implicit_sub  : Whether to allow implicit substitutions (default: True)
             explicit_style: Tuple of strings that define the explicit style
                             (default: ('$(', ')'))
+            allow_redefine: Allow values to be defined multiple times (by
+                            default a PrologueError will be raised)
         """
         self.pro            = pro
         self.parent         = parent
         self.implicit_sub   = implicit_sub
         self.explicit_style = explicit_style
+        self.allow_redefine = allow_redefine
         self.__defines      = {}
         self.__removed      = []
         self.__stack        = []
@@ -126,13 +134,13 @@ class Context(object):
     # Defined Constant Handling
     # ==========================================================================
 
-    def set_define(self, key, value, warning=True):
+    def set_define(self, key, value, check=True):
         """ Define a value for a key, checks whether the key clashes.
 
         Args:
-            key    : The key of the define
-            value  : The value of the define
-            warning: Warn about redefining an existing variable
+            key  : The key of the define
+            value: The value of the define
+            check: Check whether an existing variable is about to be redefined
         """
         # Check the key is sane
         if " " in key or len(key) == 0:
@@ -141,10 +149,16 @@ class Context(object):
                 f"character in length: '{key}'"
             )
         # Warn about collision
-        if warning and key in self.defines and not key in self.__removed:
-            self.pro.warning_message(
-                f"Value already defined for key {key}", key=key, value=value,
-            )
+        if check:
+            if key in self.defines and not key in self.__removed:
+                msg = (
+                    f"Value already defined for key '{key}' with value "
+                    f"{self.get_define(key)}"
+                )
+                if self.allow_redefine:
+                    self.pro.warning_message(msg, key=key, value=value)
+                else:
+                    raise PrologueError(msg)
         # If the value is a number, convert it
         if isinstance(value, str) and value.strip().isdigit(): value = int(value)
         # Store the define
@@ -225,7 +239,7 @@ class Context(object):
         for key in self.__removed:
             self.parent.clear_define(key)
         for key, value in self.__defines.items():
-            self.parent.set_define(key, value, warning=False)
+            self.parent.set_define(key, value, check=False)
         return self.parent
 
     # ==========================================================================
