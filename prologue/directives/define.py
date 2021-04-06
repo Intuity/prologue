@@ -20,8 +20,10 @@ from ..common import PrologueError
 class Define(LineDirective):
     """ Defines a variable in the current context """
 
-    def __init__(self, parent, src_file=None, src_line=0):
-        super().__init__(parent, src_file=src_file, src_line=src_line)
+    def __init__(self, parent, src_file=None, src_line=0, callback=None):
+        super().__init__(
+            parent, src_file=src_file, src_line=src_line, callback=callback,
+        )
         self.name  = None
         self.value = None
 
@@ -60,8 +62,10 @@ class Define(LineDirective):
 class Undefine(LineDirective):
     """ Undefined a variable from the current context """
 
-    def __init__(self, parent, src_file=None, src_line=0):
-        super().__init__(parent, src_file=src_file, src_line=src_line)
+    def __init__(self, parent, src_file=None, src_line=0, callback=None):
+        super().__init__(
+            parent, src_file=src_file, src_line=src_line, callback=callback,
+        )
         self.name = None
 
     def invoke(self, tag, arguments):

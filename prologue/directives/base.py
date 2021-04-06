@@ -20,7 +20,9 @@ from ..block import Block
 class Directive(Block):
     UUID = 0
 
-    def __init__(self, parent, yields=True, src_file=None, src_line=0):
+    def __init__(
+        self, parent, yields=True, src_file=None, src_line=0, callback=None,
+    ):
         """ Initialise the directive.
 
         Args:
@@ -28,11 +30,13 @@ class Directive(Block):
             yields  : Whether the directive yields content
             src_file: Source file
             src_line: Source line number
+            callback: External callback routine to expose parse state
         """
         super().__init__(parent)
-        self.__uuid   = BlockDirective.issue_uuid()
-        self.__yields = yields
-        self.__source = (src_file, src_line)
+        self.__uuid     = BlockDirective.issue_uuid()
+        self.__yields   = yields
+        self.__source   = (src_file, src_line)
+        self.__callback = callback
 
     @property
     def yields(self): return self.__yields
@@ -42,6 +46,9 @@ class Directive(Block):
 
     @property
     def source(self): return self.__source
+
+    @property
+    def callback(self): return self.__callback
 
     @classmethod
     def issue_uuid(self):
@@ -87,7 +94,9 @@ class BlockDirective(Directive):
     closing tag, but can also be split into multiple sections using transitions.
     """
 
-    def __init__(self, parent, yields=True, src_file=None, src_line=0):
+    def __init__(
+        self, parent, yields=True, src_file=None, src_line=0, callback=None
+    ):
         """ Initialise the block directive.
 
         Args:
@@ -95,8 +104,9 @@ class BlockDirective(Directive):
             yields  : Whether the directive yields content (defaults to True for block)
             src_file: Source file
             src_line: Source line number
+            callback: External callback routine to expose parse state
         """
-        super().__init__(parent, yields, src_file, src_line)
+        super().__init__(parent, yields, src_file, src_line, callback)
         self.__opened = False
         self.__closed = False
 
@@ -160,7 +170,9 @@ class LineDirective(Directive):
     it is embedded within a block directive.
     """
 
-    def __init__(self, parent, yields=False, src_file=None, src_line=0):
+    def __init__(
+        self, parent, yields=False, src_file=None, src_line=0, callback=None,
+    ):
         """ Initialise the block directive.
 
         Args:
@@ -168,8 +180,9 @@ class LineDirective(Directive):
             yields  : Whether the directive yields content (defaults to False for line)
             src_file: Source file
             src_line: Source line number
+            callback: External callback routine to expose parse state
         """
-        super().__init__(parent, yields, src_file, src_line)
+        super().__init__(parent, yields, src_file, src_line, callback)
 
     def invoke(self, tag, arguments):
         """ Called once to setup the directive.

@@ -20,8 +20,11 @@ from ..common import PrologueError
 class Include(LineDirective):
     """ Includes the body of another file into the output stream """
 
-    def __init__(self, parent, src_file=None, src_line=0):
-        super().__init__(parent, yields=True, src_file=src_file, src_line=src_line)
+    def __init__(self, parent, src_file=None, src_line=0, callback=None):
+        super().__init__(
+            parent, yields=True, src_file=src_file, src_line=src_line,
+            callback=callback,
+        )
         self.filename = None
 
     def invoke(self, tag, arguments):
@@ -53,8 +56,11 @@ class Include(LineDirective):
 class Import(LineDirective):
     """ Includes a file, but only once per preprocessing session """
 
-    def __init__(self, parent, src_file=None, src_line=0):
-        super().__init__(parent, yields=True, src_file=src_file, src_line=src_line)
+    def __init__(self, parent, src_file=None, src_line=0, callback=None):
+        super().__init__(
+            parent, yields=True, src_file=src_file, src_line=src_line,
+            callback=callback,
+        )
         self.filename = None
 
     def invoke(self, tag, arguments):

@@ -267,12 +267,14 @@ class Prologue(object):
     # Evaluation
     # ==========================================================================
 
-    def evaluate(self, filename, defines=None):
+    def evaluate(self, filename, defines=None, callback=None):
         """ Iterable evaluation function which returns fully preprocessed stream
 
         Args:
             filename: The file to evaluate
-            defines : Predefined values to initialise the context
+            defines : Predefined values to initialise the context (default: None)
+            callback: Optional callback provided to all directives to expose
+                      state during parse to an external routine (default: None)
 
         Yields: Stream of fully preprocessed lines
         """
@@ -286,12 +288,12 @@ class Prologue(object):
         )
         # Use inner evaluation routine to get each line one at a time
         self.lookup = []
-        for line in self.evaluate_inner(filename, context):
+        for line in self.evaluate_inner(filename, context, callback=callback):
             final = context.substitute(line)
             self.lookup.append((final.file, final.number))
             yield str(final)
 
-    def evaluate_inner(self, filename, context):
+    def evaluate_inner(self, filename, context, callback=None):
         """
         Inner evaluation routine - this performs all construction and evaluation
         except variable substitution, which is performed by 'evaluate'.
@@ -299,6 +301,8 @@ class Prologue(object):
         Args:
             filename: The file to evaluate
             context : A context object
+            callback: Optional callback provided to all directives to expose
+                      state during parse to an external routine (default: None)
 
         Yields: Stream of preprocessed lines, prior to substitution
         """
@@ -348,7 +352,10 @@ class Prologue(object):
                     d_wrap         = self.get_directive(tag)
                     if arguments.endswith(":"): arguments = arguments[:-1]
                     if d_wrap and d_wrap.is_line:
-                        l_dir = d_wrap.directive(active, src_file=r_file, src_line=(idx + 1))
+                        l_dir = d_wrap.directive(
+                            active, src_file=r_file, src_line=(idx + 1),
+                            callback=callback,
+                        )
                         l_dir.invoke(tag, arguments.strip())
                         if   active      : active.append(l_dir)
                         elif l_dir.yields: yield from l_dir.evaluate(context)
@@ -358,7 +365,10 @@ class Prologue(object):
                     elif d_wrap and d_wrap.is_block:
                         # Call the directive
                         if d_wrap.is_opening(tag):
-                            block   = d_wrap.directive(active, src_file=r_file, src_line=(idx + 1))
+                            block   = d_wrap.directive(
+                                active, src_file=r_file, src_line=(idx + 1),
+                                callback=callback,
+                            )
                             block.open(tag, arguments)
                             # If a block is already open, append to it
                             if active: active.append(block)
@@ -399,7 +409,10 @@ class Prologue(object):
                         # Yield the text before the directive
                         yield line.encase(prior.rstrip())
                         # Yield the contents returned from the directive
-                        l_dir = d_wrap.directive(active, src_file=r_file, src_line=(idx + 1))
+                        l_dir = d_wrap.directive(
+                            active, src_file=r_file, src_line=(idx + 1),
+                            callback=callback,
+                        )
                         l_dir.invoke(tag, arguments.strip())
                         if   active      : active.append(l_dir)
                         elif l_dir.yields: yield from l_dir.evaluate(context)

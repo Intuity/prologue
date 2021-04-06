@@ -26,8 +26,10 @@ ERROR   = ["error", "danger", "fatal"]
 class Message(LineDirective):
     """ Prints message at different verbosity levels """
 
-    def __init__(self, parent, src_file=None, src_line=0):
-        super().__init__(parent, src_file=src_file, src_line=src_line)
+    def __init__(self, parent, src_file=None, src_line=0, callback=None):
+        super().__init__(
+            parent, src_file=src_file, src_line=src_line, callback=callback,
+        )
         self.msg_class = None
         self.msg_text  = None
 

@@ -268,12 +268,14 @@ def test_prologue_evaluate(mocker):
         Line(random_str(30, 50, spaces=True), l_file, idx+1)
         for idx in range(randint(20, 30))
     ]
-    def gen_lines(file, ctx):
+    def gen_lines(file, ctx, callback=None):
         for line in lines: yield line
     pro.evaluate_inner.side_effect = gen_lines
+    # Create a dummy callback routine
+    def dummy_cb(): print(f"Hit the dummy callback routine")
     # Call evaluate
     initial = { random_str(5, 10): random_str(5, 10) for _ in range(5) }
-    result  = [x for x in pro.evaluate(l_file, defines=initial)]
+    result  = [x for x in pro.evaluate(l_file, defines=initial, callback=dummy_cb)]
     # Check that the initial state reached the context
     mock_ctx_cls.assert_has_calls([call(
         pro, implicit_sub=True, explicit_style=("$(", ")"),
@@ -286,7 +288,9 @@ def test_prologue_evaluate(mocker):
     # Check that the lookup has been populated correctly
     assert pro.lookup == [(x.file, x.number) for x in lines]
     # Check calls to 'evaluate_inner'
-    pro.evaluate_inner.assert_has_calls([call(l_file, mock_ctx_inst[0])])
+    pro.evaluate_inner.assert_has_calls([call(
+        l_file, mock_ctx_inst[0], callback=dummy_cb,
+    )])
     # Check calls to 'substitute'
     mock_ctx_inst[0].substitute.assert_has_calls([call(x) for x in lines])
 
@@ -465,8 +469,11 @@ def test_prologue_evaluate_inner_line(mocker, should_yield):
     # Create a line directive
     dirx_inst = []
     class LineDirx(LineDirective):
-        def __init__(self, parent, src_file=None, src_line=0):
-            super().__init__(parent, yields=should_yield, src_file=src_file, src_line=src_line)
+        def __init__(self, parent, src_file=None, src_line=0, callback=None):
+            super().__init__(
+                parent, yields=should_yield, src_file=src_file, src_line=src_line,
+                callback=callback,
+            )
             dirx_inst.append(self)
     mocker.patch.object(LineDirx, "invoke",   autospec=True)
     mocker.patch.object(LineDirx, "evaluate", autospec=True)
@@ -505,8 +512,10 @@ def test_prologue_evaluate_inner_line(mocker, should_yield):
         # Accumulate calls
         if use_dirx: dirx_calls.append(call(ANY, use_tag.lower(), argument))
     m_con.return_value = [Line(x, r_file, i+1) for i, x in enumerate(contents)]
+    # Create a dummy callback
+    def dummy_cb(): pass
     # Pull all lines out of the evaluate loop
-    result = [x for x in pro.evaluate_inner(r_file.filename, ctx)]
+    result = [x for x in pro.evaluate_inner(r_file.filename, ctx, callback=dummy_cb)]
     # Checks
     assert len(result) == len(output)
     assert ctx.stack   == []
@@ -514,6 +523,7 @@ def test_prologue_evaluate_inner_line(mocker, should_yield):
     for got_out, exp_out in zip(result, output):
         assert str(got_out) == exp_out.rstrip(" ")
     LineDirx.invoke.assert_has_calls(dirx_calls)
+    for dirx in dirx_inst: assert dirx.callback == dummy_cb
 
 @pytest.mark.parametrize("should_yield", [True, False])
 def test_prologue_evaluate_inner_block(mocker, should_yield):
@@ -527,9 +537,14 @@ def test_prologue_evaluate_inner_block(mocker, should_yield):
     mocker.patch.object(RegistryFile, "__init__", lambda x: None)
     m_con = mocker.patch.object(RegistryFile, "contents", new_callable=PropertyMock)
     # Create a line directive
+    dirx_inst = []
     class BlockDirx(BlockDirective):
-        def __init__(self, parent, src_file=None, src_line=0):
-            super().__init__(parent, yields=should_yield, src_file=src_file, src_line=src_line)
+        def __init__(self, parent, src_file=None, src_line=0, callback=None):
+            super().__init__(
+                parent, yields=should_yield, src_file=src_file, src_line=src_line,
+                callback=callback,
+            )
+            dirx_inst.append(self)
     mocker.patch.object(BlockDirx, "open",       autospec=True)
     mocker.patch.object(BlockDirx, "transition", autospec=True)
     mocker.patch.object(BlockDirx, "close",      autospec=True)
@@ -592,8 +607,10 @@ def test_prologue_evaluate_inner_block(mocker, should_yield):
             for arg in tran_args: tran_calls.append(call(ANY, tran_tag.lower(), arg))
             close_calls.append(call(ANY, close_tag.lower(), close_arg))
     m_con.return_value = [Line(x, r_file, i+1) for i, x in enumerate(contents)]
+    # Create a dummy callback
+    def dummy_cb(): pass
     # Pull all lines out of the evaluate loop
-    result = [x for x in pro.evaluate_inner(r_file.filename, ctx)]
+    result = [x for x in pro.evaluate_inner(r_file.filename, ctx, callback=dummy_cb)]
     # Checks
     assert len(result) == len(output)
     assert ctx.stack   == []
@@ -603,6 +620,7 @@ def test_prologue_evaluate_inner_block(mocker, should_yield):
     BlockDirx.open.assert_has_calls(open_calls)
     BlockDirx.transition.assert_has_calls(tran_calls)
     BlockDirx.close.assert_has_calls(close_calls)
+    for dirx in dirx_inst: assert dirx.callback == dummy_cb
 
 def test_prologue_evaluate_inner_block_floating(mocker):
     """ Test that floating block directives are flagged """
@@ -614,10 +632,13 @@ def test_prologue_evaluate_inner_block_floating(mocker):
     m_reg = mocker.patch.object(pro, "registry", autospec=True)
     mocker.patch.object(RegistryFile, "__init__", lambda x: None)
     m_con = mocker.patch.object(RegistryFile, "contents", new_callable=PropertyMock)
-    # Create a line directive
+    # Create a block directive
     class BlockDirx(BlockDirective):
-        def __init__(self, parent):
-            super().__init__(parent, yields=True)
+        def __init__(self, parent, src_file=None, src_line=0, callback=None):
+            super().__init__(
+                parent, yields=True, src_file=src_file, src_line=src_line,
+                callback=callback,
+            )
     opening = [random_str(5, 10) for _x in range(randint(1, 5))]
     closing = [random_str(5, 10, avoid=opening) for _x in range(1, 5)]
     transit = [random_str(5, 10, avoid=opening+closing) for _x in range(1, 5)]
@@ -655,11 +676,17 @@ def test_prologue_evaluate_inner_block_confused(mocker):
     delim = choice(("#", "@", "$", "%", "!"))
     # Create a pair of block directives
     class BlockDirA(BlockDirective):
-        def __init__(self, parent, src_file=None, src_line=0):
-            super().__init__(parent, yields=True, src_file=src_file, src_line=src_line)
+        def __init__(self, parent, src_file=None, src_line=0, callback=None):
+            super().__init__(
+                parent, yields=True, src_file=src_file, src_line=src_line,
+                callback=callback,
+            )
     class BlockDirB(BlockDirective):
-        def __init__(self, parent, src_file=None, src_line=0):
-            super().__init__(parent, yields=True, src_file=src_file, src_line=src_line)
+        def __init__(self, parent, src_file=None, src_line=0, callback=None):
+            super().__init__(
+                parent, yields=True, src_file=src_file, src_line=src_line,
+                callback=callback,
+            )
     all_tags   = []
     opening_a  = [random_str(5, 10, avoid=all_tags) for _x in range(randint(1, 5))]
     all_tags  += opening_a
@@ -717,8 +744,11 @@ def test_prologue_evaluate_inner_block_trailing(mocker):
     # Create a pair of block directives
     dirx_inst = []
     class BlockDirx(BlockDirective):
-        def __init__(self, parent, src_file, src_line):
-            super().__init__(parent, yields=True, src_file=src_file, src_line=src_line)
+        def __init__(self, parent, src_file, src_line, callback=None):
+            super().__init__(
+                parent, yields=True, src_file=src_file, src_line=src_line,
+                callback=callback,
+            )
             dirx_inst.append(self)
     opening = [random_str(5, 10) for _x in range(randint(1, 5))]
     closing = [random_str(5, 10, avoid=opening) for _x in range(randint(1, 5))]
@@ -762,8 +792,11 @@ def test_prologue_evaluate_inner_stack_corrupt(mocker):
     # Create a pair of block directives
     dirx_inst = []
     class BlockDirx(BlockDirective):
-        def __init__(self, parent, src_file=None, src_line=0):
-            super().__init__(parent, yields=True, src_file=src_file, src_line=src_line)
+        def __init__(self, parent, src_file=None, src_line=0, callback=None):
+            super().__init__(
+                parent, yields=True, src_file=src_file, src_line=src_line,
+                callback=callback,
+            )
             dirx_inst.append(self)
     opening = [random_str(5, 10) for _x in range(randint(1, 5))]
     closing = [random_str(5, 10, avoid=opening) for _x in range(randint(1, 5))]
