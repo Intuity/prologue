@@ -280,7 +280,10 @@ def test_prologue_evaluate(mocker):
     def dummy_cb(): print(f"Hit the dummy callback routine")
     # Call evaluate
     initial = { random_str(5, 10): random_str(5, 10) for _ in range(5) }
-    result  = [x for x in pro.evaluate(l_file, defines=initial, callback=dummy_cb)]
+    lookup  = []
+    result  = [x for x in pro.evaluate(
+        l_file, defines=initial, callback=dummy_cb, lookup=lookup,
+    )]
     # Check that the initial state reached the context
     mock_ctx_cls.assert_has_calls([call(
         pro, implicit_sub=True, explicit_style=("$(", ")"),
@@ -291,7 +294,7 @@ def test_prologue_evaluate(mocker):
     # Check that every line contains substitutions
     assert result == [f"start sub {str(x)} end sub" for x in lines]
     # Check that the lookup has been populated correctly
-    assert pro.lookup == [(x.file, x.number) for x in lines]
+    assert lookup == [(x.file, x.number) for x in lines]
     # Check calls to 'evaluate_inner'
     pro.evaluate_inner.assert_has_calls([call(
         l_file, mock_ctx_inst[0], callback=dummy_cb,
@@ -304,8 +307,8 @@ def test_prologue_resolve():
     pro = Prologue()
     # Before populating lookup, check for error
     with pytest.raises(PrologueError) as excinfo:
-        pro.resolve(randint(1, 10000))
-    assert "Lookup does not yet exist - have you called 'evaluate'?" == str(excinfo.value)
+        pro.resolve([], randint(1, 10000))
+    assert "Lookup is either empty or not a list: []" == str(excinfo.value)
     # Populate the lookup with random entries
     num_before = randint(0, 5)
     num_after  = randint(0, 5)
@@ -324,19 +327,19 @@ def test_prologue_resolve():
         ]
         snippet[fake_before] = snippet[fake_before].replace("    ", " >> ")
         return (fake_file, fake_num, [str(x) for x in snippet])
-    entries    = [gen_random_entry() for _ in range(randint(100, 200))]
-    pro.lookup = [(x[0], x[1]) for x in entries]
+    entries = [gen_random_entry() for _ in range(randint(100, 200))]
+    lookup  = [(x[0], x[1]) for x in entries]
     # Try using a non-integer
     for obj in (random_str(5, 10), {}, [], Prologue, MagicMock):
         with pytest.raises(PrologueError) as excinfo:
-            pro.resolve(obj)
+            pro.resolve(lookup, obj)
         assert f"Line number must be an integer - not '{obj}'" == str(excinfo.value)
     # Try out-of-range lines
     for _x in range(100):
         too_low = choice((True, False))
         value   = randint(-100, 0) if too_low else randint(len(entries)+1, 300)
         with pytest.raises(PrologueError) as excinfo:
-            pro.resolve(value)
+            pro.resolve(lookup, value)
         assert f"Line {value} is out of valid range 1-{len(entries)}" == str(excinfo.value)
     # Test random lines
     for _x in range(100):
@@ -344,7 +347,7 @@ def test_prologue_resolve():
         out_line = entries.index(entry) + 1
         # Resolve the input file, line number, and snippet
         r_file, line_no, snippet = pro.resolve(
-            out_line, before=num_before, after=num_after
+            lookup, out_line, before=num_before, after=num_after
         )
         # Check file, line number, and snippet match those in the fake lookup
         assert entry[0] == r_file
