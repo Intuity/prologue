@@ -25,7 +25,8 @@ from .common import random_str
 def test_include():
     """ Include a file by name, check for request to the preprocessor """
     for _x in range(100):
-        inc = Include.directive(None)
+        dummy_cb = MagicMock()
+        inc      = Include.directive(None, callback=dummy_cb)
         # Check initial state
         assert inc.filename == None
         # Invoke with a random file name
@@ -37,7 +38,9 @@ def test_include():
         ctx   = MagicMock()
         ctx.pro.evaluate_inner.side_effect = [iter(lines)]
         result = [x for x in inc.evaluate(ctx)]
-        ctx.pro.evaluate_inner.assert_has_calls([call(inc_file, context=ctx)])
+        ctx.pro.evaluate_inner.assert_has_calls([call(
+            inc_file, context=ctx, callback=dummy_cb,
+        )])
         assert result == lines
 
 def test_include_bad_tag():

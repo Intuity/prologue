@@ -25,7 +25,8 @@ from .common import random_str
 def test_import():
     """ Import a file by name, check for request to the preprocessor """
     for _x in range(100):
-        imp = Import.directive(None)
+        dummy_cb = MagicMock()
+        imp      = Import.directive(None, callback=dummy_cb)
         # Check initial state
         assert imp.filename == None
         # Invoke with a random file name
@@ -41,7 +42,9 @@ def test_import():
         ctx.trace = []
         result    = [x for x in imp.evaluate(ctx)]
         ctx.pro.registry.resolve.assert_has_calls([call(imp_file)])
-        ctx.pro.evaluate_inner.assert_has_calls([call(imp_file, context=ctx)])
+        ctx.pro.evaluate_inner.assert_has_calls([call(
+            imp_file, context=ctx, callback=dummy_cb,
+        )])
         assert result == lines
 
 def test_import_duplicate():
