@@ -61,6 +61,9 @@ def test_registry_add_file(tmp_path):
     r_file = reg.resolve("file_a.txt")
     assert isinstance(r_file, RegistryFile)
     assert r_file.path == path
+    assert reg.has_entry("file_a.txt")
+    assert len(reg.list_entries()) == 1
+    assert r_file in reg.list_entries()
 
 def test_registry_add_folder(tmp_path):
     """ Add a folder to the registry and check files can be resolved """
@@ -74,6 +77,8 @@ def test_registry_add_folder(tmp_path):
     r_file = reg.resolve("folder/test_a.txt")
     assert isinstance(r_file, RegistryFile)
     assert r_file.path == path
+    assert reg.has_entry("folder")
+    assert len(reg.list_entries()) == 1
 
 def test_registry_flat(tmp_path):
     """ Test a 'flat' registry sticks all files in the root """
@@ -93,6 +98,11 @@ def test_registry_flat(tmp_path):
     assert isinstance(r_file_b, RegistryFile)
     assert r_file_a.path == file_a
     assert r_file_b.path == file_b
+    assert reg.has_entry("file_a.txt")
+    assert reg.has_entry("file_b.txt")
+    assert len(reg.list_entries()) == 2
+    assert r_file_a in reg.list_entries()
+    assert r_file_b in reg.list_entries()
 
 def test_registry_recurse(tmp_path):
     """ Test adding a folder recursively """
@@ -121,6 +131,11 @@ def test_registry_recurse(tmp_path):
     assert r_file_a.path == file_a
     assert r_file_b.path == file_b
     assert r_file_c.path == file_c
+    # Check registered entries
+    assert reg.has_entry("folder_a")
+    assert reg.has_entry("folder_b")
+    assert reg.has_entry("folder_c")
+    assert len(reg.list_entries()) == 3
 
 def test_registry_selective(tmp_path):
     """ Recurse selectively through folder """
