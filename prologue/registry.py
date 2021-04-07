@@ -130,11 +130,13 @@ class Registry(object):
         self.__flat    = flat
         self.__entries = {}
 
-    def insert_entry(self, entry):
+    def insert_entry(self, entry, ignore_duplicate=False):
         """ Insert an entry into the registry.
 
         Args:
-            entry: Either a RegistryFile or RegistryFolder instance
+            entry           : Either a RegistryFile or RegistryFolder instance
+            ignore_duplicate: Don't raise an error if the file or folder already
+                              exists in the registry (default: False)
         """
         # Check the entry type
         if type(entry) not in [RegistryFile, RegistryFolder]:
@@ -146,6 +148,7 @@ class Registry(object):
             entry.filename if isinstance(entry, RegistryFile) else entry.folder
         )
         if entry_name in self.__entries:
+            if ignore_duplicate: return
             raise PrologueError(
                 f"Entry already exists in registry with name {entry_name}"
             )
@@ -155,15 +158,19 @@ class Registry(object):
         )
         self.__entries[entry_name] = entry
 
-    def add_file(self, path):
+    def add_file(self, path, ignore_duplicate=False):
         """ Add a specific file to the registry.
 
         Args:
-            path: Path to the file to add
+            path            : Path to the file to add
+            ignore_duplicate: Don't raise an error if the file or folder already
+                              exists in the registry (default: False)
         """
-        self.insert_entry(RegistryFile(path))
+        self.insert_entry(RegistryFile(path), ignore_duplicate=ignore_duplicate)
 
-    def add_folder(self, path, search_for=None, recursive=False):
+    def add_folder(
+        self, path, search_for=None, recursive=False, ignore_duplicate=False
+    ):
         """
         Add a new folder to the registry. If 'search_for' is provided, then all
         matching files within the folder will be added to the registry root,
@@ -173,9 +180,11 @@ class Registry(object):
         only the top-level folder will be added.
 
         Args:
-            path      : Path to the root folder to add
-            search_for: Provide a file extension to search for
-            recursive : Whether to search recursively in this folder
+            path            : Path to the root folder to add
+            search_for      : Provide a file extension to search for
+            recursive       : Whether to search recursively in this folder
+            ignore_duplicate: Don't raise an error if the file or folder already
+                              exists in the registry (default: False)
         """
         self.__pro.debug_message(
             "Adding folder " + ("" if recursive else "non-") + "recursively to "
@@ -185,11 +194,13 @@ class Registry(object):
         r_folder = RegistryFolder(path)
         # If neither argument provided, register directly
         if not self.__flat and not search_for and not recursive:
-            self.insert_entry(r_folder)
+            self.insert_entry(r_folder, ignore_duplicate=ignore_duplicate)
         # If only recursive is provided, register all subfolders
         elif not self.__flat and not search_for and recursive:
             for subfolder in r_folder.path.rglob("**/"):
-                self.insert_entry(RegistryFolder(subfolder))
+                self.insert_entry(
+                    RegistryFolder(subfolder), ignore_duplicate=ignore_duplicate
+                )
         # If search_for is provided, lookup files
         elif self.__flat or isinstance(search_for, str):
             if not search_for: search_for = ""
@@ -199,7 +210,9 @@ class Registry(object):
                 r_folder.path.glob(f"*{search_for}")
             ):
                 if subpath.is_dir(): continue
-                self.insert_entry(RegistryFile(subpath))
+                self.insert_entry(
+                    RegistryFile(subpath), ignore_duplicate=ignore_duplicate
+                )
         # Unknown scenario
         else:
             raise PrologueError(f"Unexpected error adding folder {path}")

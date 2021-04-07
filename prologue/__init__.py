@@ -177,23 +177,36 @@ class Prologue(object):
     # Registry Passthroughs
     # ==========================================================================
 
-    def add_file(self, path):
+    def add_file(self, path, ignore_duplicate=False):
         """ Add a file to the registry.
 
         Args:
-            path: Path to add
+            path            : Path to add
+            ignore_duplicate: Don't raise an error if the file or folder already
+                              exists in the registry (default: False)
         """
-        self.registry.add_file(path)
+        self.registry.add_file(path, ignore_duplicate=ignore_duplicate)
 
-    def add_folder(self, path, search_for=None, recursive=False):
+    def add_folder(
+        self,
+        path,
+        search_for      =None,
+        recursive       =False,
+        ignore_duplicate=False,
+    ):
         """ Add a folder to the registry, see Registry.add_folder for more info.
 
         Args:
-            path      : Path to the root folder to add
-            search_for: Provide a file extension to search for
-            recursive : Whether to search recursively in this folder
+            path            : Path to the root folder to add
+            search_for      : Provide a file extension to search for
+            recursive       : Whether to search recursively in this folder
+            ignore_duplicate: Don't raise an error if the file or folder already
+                              exists in the registry (default: False)
         """
-        self.registry.add_folder(path, search_for=search_for, recursive=recursive)
+        self.registry.add_folder(
+            path, search_for=search_for, recursive=recursive,
+            ignore_duplicate=ignore_duplicate,
+        )
 
     # ==========================================================================
     # Directives
