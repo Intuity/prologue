@@ -71,3 +71,9 @@ The fruit is 'apple' and the integer is greater than 1
         #endif
     #endfor
 #endfor
+
+Or a more complex loop:
+
+#for x in range(3, 27, 4):
+The number is $(x)
+#endfor

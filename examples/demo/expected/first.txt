@@ -58,3 +58,12 @@ The fruit is 'apple' and the integer is greater than 1
 This is orange number 2
 This is cherry number 2
 This is peach number 2
+
+Or a more complex loop:
+
+The number is 3
+The number is 7
+The number is 11
+The number is 15
+The number is 19
+The number is 23
