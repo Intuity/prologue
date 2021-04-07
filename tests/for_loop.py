@@ -18,7 +18,8 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from prologue.block import Block
-from prologue.common import PrologueError
+from prologue.common import Line, PrologueError
+from prologue.context import Context
 from prologue.directives.for_loop import ForLoop
 
 from .common import random_str
@@ -137,3 +138,47 @@ def test_for_loop_evaluate():
         ctx.set_define.assert_has_calls([
             call(loop_var, x, check=False) for x in range(num_rpt)
         ])
+
+def test_for_loop_evaluate_single():
+    """ Test evaluation of a for loop with a different lengths """
+    # Try evaluating the loop with different lengths
+    for _ in range(10):
+        # Choose stop point
+        stop = randint(10, 20)
+        # Create a loop
+        loop     = ForLoop.directive(None)
+        loop_var = random_str(1, 3)
+        loop_cnd = f"{loop_var} in range({stop})"
+        loop.open("for", loop_cnd)
+        loop.append(Line(f"The number is $({loop_var})", None, 1))
+        loop.close("endfor", "")
+        assert loop.opened and loop.closed
+        assert loop.loop == loop_cnd
+        # Trigger evaluate with a fake context
+        result = [x for x in loop.evaluate(Context(None))]
+        # Test result
+        exp_result = [f"The number is {x}" for x in range(stop)]
+        assert result == exp_result
+
+def test_for_loop_evaluate_step():
+    """ Test evaluation of a for loop with a custom start, stop, and step """
+    # Try evaluating the loop with different start, stop, and step values
+    for _ in range(10):
+        # Choose start, stop, and step
+        start    = randint( 0, 10)
+        stop     = randint(20, 30)
+        step     = randint( 1,  4)
+        # Create a loop
+        loop     = ForLoop.directive(None)
+        loop_var = random_str(1, 3)
+        loop_cnd = f"{loop_var} in range({start}, {stop}, {step})"
+        loop.open("for", loop_cnd)
+        loop.append(Line(f"The number is $({loop_var})", None, 1))
+        loop.close("endfor", "")
+        assert loop.opened and loop.closed
+        assert loop.loop == loop_cnd
+        # Trigger evaluate with a fake context
+        result = [x for x in loop.evaluate(Context(None))]
+        # Test result
+        exp_result = [f"The number is {x}" for x in range(start, stop, step)]
+        assert result == exp_result
