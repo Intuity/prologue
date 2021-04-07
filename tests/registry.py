@@ -160,7 +160,8 @@ def test_registry_bad_insert():
             reg.insert_entry(item)
         assert f"Entry is not a recognised type {type(item).__name__}" in str(excinfo.value)
 
-def test_registry_clash(tmp_path):
+@pytest.mark.parametrize("ignore_duplicate", [True, False])
+def test_registry_clash(tmp_path, ignore_duplicate):
     """ Try to register the same file or folder twice """
     pro = MagicMock()
     reg = Registry(pro)
@@ -172,13 +173,19 @@ def test_registry_clash(tmp_path):
     reg.add_file(file_a)
     reg.add_folder(folder_a)
     # Attempt to insert file a second time
-    with pytest.raises(PrologueError) as excinfo:
-        reg.add_file(file_a)
-    assert f"Entry already exists in registry with name {file_a.parts[-1]}" in str(excinfo.value)
+    if ignore_duplicate:
+        reg.add_file(file_a, ignore_duplicate=ignore_duplicate)
+    else:
+        with pytest.raises(PrologueError) as excinfo:
+            reg.add_file(file_a)
+        assert f"Entry already exists in registry with name {file_a.parts[-1]}" in str(excinfo.value)
     # Attempt to insert folder a second time
-    with pytest.raises(PrologueError) as excinfo:
-        reg.add_folder(folder_a)
-    assert f"Entry already exists in registry with name {folder_a.parts[-1]}" in str(excinfo.value)
+    if ignore_duplicate:
+        reg.add_folder(folder_a, ignore_duplicate=ignore_duplicate)
+    else:
+        with pytest.raises(PrologueError) as excinfo:
+            reg.add_folder(folder_a)
+        assert f"Entry already exists in registry with name {folder_a.parts[-1]}" in str(excinfo.value)
 
 def test_registry_resolve_unknown():
     """ Try to access unregistered file from the registry """

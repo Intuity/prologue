@@ -123,16 +123,21 @@ def test_prologue_add_file(mocker):
     """ Test that add file calls to the registry """
     pro = Prologue()
     mocker.patch.object(pro, "registry", autospec=True)
-    pro.add_file("test_file_1234")
-    pro.registry.add_file.assert_called_once_with("test_file_1234")
+    ignore_dup = choice((True, False))
+    pro.add_file("test_file_1234", ignore_duplicate=ignore_dup)
+    pro.registry.add_file.assert_called_once_with(
+        "test_file_1234", ignore_duplicate=ignore_dup,
+    )
 
 def test_prologue_add_folder(mocker):
     """ Test that add folder calls to the registry """
     pro = Prologue()
     mocker.patch.object(pro, "registry", autospec=True)
-    pro.add_folder("test_folder_1234", ".txt", True)
+    ignore_dup = choice((True, False))
+    pro.add_folder("test_folder_1234", ".txt", True, ignore_duplicate=ignore_dup)
     pro.registry.add_folder.assert_called_once_with(
-        "test_folder_1234", search_for=".txt", recursive=True
+        "test_folder_1234", search_for=".txt", recursive=True,
+        ignore_duplicate=ignore_dup,
     )
 
 def test_prologue_messages(mocker):
