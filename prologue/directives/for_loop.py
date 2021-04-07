@@ -73,7 +73,9 @@ class ForLoop(BlockDirective):
         m_array  = self.RGX_ARRAY.match(post_loop)
         iterable = None
         if m_range:
-            iterable = range(context.evaluate(m_range.groups(0)[0]))
+            rng_eval = context.evaluate(m_range.groups(0)[0])
+            if isinstance(rng_eval, tuple): iterable = range(*rng_eval)
+            else: iterable = range(rng_eval)
         elif m_array:
             iterable = [x.strip() for x in m_array.groups(0)[0].split(",")]
         else:
