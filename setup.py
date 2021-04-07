@@ -20,7 +20,7 @@ with open(Path(__file__).parent / "README.md", "r") as fh:
 
 setup(
     name="prologue",
-    version="1.1",
+    version="1.2",
     license="Apache License, Version 2.0",
     description="General purpose preprocessor written in Python",
     long_description=long_description,
