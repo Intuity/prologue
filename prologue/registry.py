@@ -158,6 +158,20 @@ class Registry(object):
         )
         self.__entries[entry_name] = entry
 
+    def list_entries(self):
+        """ List all files and folders present in the registry.
+
+        Returns: List of RegistryFile and RegistryFolder entries
+        """
+        return list(self.__entries.values())
+
+    def has_entry(self, name):
+        """ Check if the registry contains an entry for a given name.
+
+        Returns: True if it exists, False otherwise
+        """
+        return name in self.__entries
+
     def add_file(self, path, ignore_duplicate=False):
         """ Add a specific file to the registry.
 
